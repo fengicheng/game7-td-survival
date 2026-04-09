@@ -1,15 +1,18 @@
-import { CORE, GRID_HEIGHT, GRID_WIDTH, SPAWNS } from "./data";
-import type { ItemEntity, PathBundle, Point, TowerEntity } from "./types";
+import { CORE, DANGER_PATH_PENALTY, GRID_HEIGHT, GRID_WIDTH, SPAWNS } from "./data";
+import type { FragileWallEntity, ItemEntity, PathBundle, Point, TowerEntity } from "./types";
 
 interface Occupancy {
   towers: Map<string, TowerEntity>;
   items: Map<string, ItemEntity>;
+  fragileWalls: Map<string, FragileWallEntity>;
   walls: Set<string>;
+  danger: Set<string>;
 }
 
 interface WeightedNode extends Point {
   removed: number;
   steps: number;
+  danger: number;
   turns: number;
   dir: string;
 }
@@ -36,7 +39,7 @@ function isBlockingItem(key: string, occupancy: Occupancy) {
 
 function isBlocked(x: number, y: number, occupancy: Occupancy) {
   const key = toKey(x, y);
-  return occupancy.walls.has(key) || occupancy.towers.has(key) || isBlockingItem(key, occupancy);
+  return occupancy.walls.has(key) || occupancy.fragileWalls.has(key) || occupancy.towers.has(key) || isBlockingItem(key, occupancy);
 }
 
 function reconstruct(end: Point, parents: Map<string, string>) {
@@ -51,38 +54,59 @@ function reconstruct(end: Point, parents: Map<string, string>) {
 }
 
 function normalPath(start: Point, occupancy: Occupancy) {
-  const queue: Point[] = [start];
-  const visited = new Set([toKey(start.x, start.y)]);
+  const frontier: WeightedNode[] = [{ ...start, removed: 0, steps: 0, danger: 0, turns: 0, dir: "S" }];
+  const best = new Map<string, WeightedNode>();
   const parents = new Map<string, string>();
+  best.set(toKey(start.x, start.y), frontier[0]);
 
-  while (queue.length) {
-    const current = queue.shift()!;
+  while (frontier.length) {
+    frontier.sort(compareNormal);
+    const current = frontier.shift()!;
     if (current.x === CORE.x && current.y === CORE.y) return reconstruct(current, parents);
 
     for (const dir of DIRS) {
       const nx = current.x + dir.x;
       const ny = current.y + dir.y;
-      if (!isInside(nx, ny)) continue;
+      if (!isInside(nx, ny) || isBlocked(nx, ny, occupancy)) continue;
       const key = toKey(nx, ny);
-      if (visited.has(key) || isBlocked(nx, ny, occupancy)) continue;
-      visited.add(key);
-      parents.set(key, toKey(current.x, current.y));
-      queue.push({ x: nx, y: ny });
+      const next: WeightedNode = {
+        x: nx,
+        y: ny,
+        removed: 0,
+        steps: current.steps + 1,
+        danger: current.danger + (occupancy.danger.has(key) ? DANGER_PATH_PENALTY : 0),
+        turns: current.turns + (current.dir !== "S" && current.dir !== dir.key ? 1 : 0),
+        dir: dir.key,
+      };
+      const prev = best.get(key);
+      if (!prev || compareNormal(next, prev) < 0) {
+        best.set(key, next);
+        parents.set(key, toKey(current.x, current.y));
+        frontier.push(next);
+      }
     }
   }
 
   return [] as Point[];
 }
 
+function compareNormal(a: WeightedNode, b: WeightedNode) {
+  if (a.steps !== b.steps) return a.steps - b.steps;
+  if (a.danger !== b.danger) return a.danger - b.danger;
+  if (a.turns !== b.turns) return a.turns - b.turns;
+  return a.y - b.y || a.x - b.x;
+}
+
 function compareWeighted(a: WeightedNode, b: WeightedNode) {
   if (a.removed !== b.removed) return a.removed - b.removed;
   if (a.steps !== b.steps) return a.steps - b.steps;
+  if (a.danger !== b.danger) return a.danger - b.danger;
   if (a.turns !== b.turns) return a.turns - b.turns;
   return a.y - b.y || a.x - b.x;
 }
 
 function weightedPath(start: Point, occupancy: Occupancy, preferred?: Set<string>) {
-  const frontier: WeightedNode[] = [{ ...start, removed: 0, steps: 0, turns: 0, dir: "S" }];
+  const frontier: WeightedNode[] = [{ ...start, removed: 0, steps: 0, danger: 0, turns: 0, dir: "S" }];
   const best = new Map<string, WeightedNode>();
   const parents = new Map<string, string>();
   best.set(toKey(start.x, start.y), frontier[0]);
@@ -104,6 +128,7 @@ function weightedPath(start: Point, occupancy: Occupancy, preferred?: Set<string
         y: ny,
         removed: current.removed + blocked,
         steps: current.steps + 1 + preferredPenalty,
+        danger: current.danger + (occupancy.danger.has(key) ? DANGER_PATH_PENALTY : 0),
         turns: current.turns + (current.dir !== "S" && current.dir !== dir.key ? 1 : 0),
         dir: dir.key,
       };
@@ -136,16 +161,24 @@ function blockedCellsInPath(path: Point[], occupancy: Occupancy) {
   const blockers = new Set<string>();
   path.forEach((point) => {
     const key = toKey(point.x, point.y);
-    if (occupancy.towers.has(key) || isBlockingItem(key, occupancy)) blockers.add(key);
+    if (occupancy.towers.has(key) || occupancy.fragileWalls.has(key) || isBlockingItem(key, occupancy)) blockers.add(key);
   });
   return blockers;
 }
 
-export function computePathBundle(towers: TowerEntity[], items: ItemEntity[], walls: Set<string>): PathBundle {
+export function computePathBundle(
+  towers: TowerEntity[],
+  items: ItemEntity[],
+  fragileWalls: FragileWallEntity[],
+  walls: Set<string>,
+  danger: Set<string>,
+): PathBundle {
   const occupancy: Occupancy = {
     towers: new Map(towers.map((tower) => [toKey(tower.x, tower.y), tower])),
     items: new Map(items.map((item) => [toKey(item.x, item.y), item])),
+    fragileWalls: new Map(fragileWalls.map((wall) => [toKey(wall.x, wall.y), wall])),
     walls,
+    danger,
   };
 
   const normalPaths = new Map<number, Point[]>();

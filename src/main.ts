@@ -166,7 +166,9 @@ function renderBoard() {
     cell.className = "cell";
     cell.innerHTML = "";
     if (status.isWall) cell.classList.add("wall");
+    if (!status.isWall && !status.isBuildable && !status.isCore && status.spawnIndex < 0 && !status.fragileWall) cell.classList.add("road");
     if (status.isBuildable && !status.tower && !status.item && !status.isCore && status.spawnIndex < 0) cell.classList.add("buildable");
+    if (status.isDanger) cell.classList.add("danger");
     if (status.isCore) {
       cell.classList.add("core");
       cell.textContent = "核";
@@ -203,6 +205,16 @@ function renderBoard() {
         <div class="occupant item">
           <span class="tag item-tag">${cfg.name.slice(0, 2)}</span>
           ${cfg.maxHp ? `<span class="hp"><i style="width:${hpPct}%"></i></span>` : ""}
+        </div>
+      `;
+    } else if (status.fragileWall) {
+      const wall = status.fragileWall;
+      const hpPct = Math.max(0, Math.min(100, Math.round((wall.hp / wall.maxHp) * 100)));
+      cell.classList.add("occupied", "fragile-wall");
+      cell.innerHTML = `
+        <div class="occupant item">
+          <span class="tag item-tag fragile-tag">W</span>
+          <span class="hp"><i style="width:${hpPct}%"></i></span>
         </div>
       `;
     }

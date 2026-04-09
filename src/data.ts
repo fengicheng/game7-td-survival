@@ -1,6 +1,7 @@
 import type {
   EnemyConfig,
   EnemyType,
+  FragileWallEntity,
   ItemConfig,
   ItemType,
   Point,
@@ -10,8 +11,26 @@ import type {
   WaveSpawn,
 } from "./types";
 
-export const GRID_WIDTH = 18;
-export const GRID_HEIGHT = 12;
+const MAP_LAYOUT = [
+  "#####################",
+  "##########S##########",
+  "#S=++====+=!===++=###",
+  "#=###=###=.=###=.=###",
+  "#=...=..+...=..+==###",
+  "#=###=##+++##=###+###",
+  "#=W+=..+++..=!!+=####",
+  "#=W+====+++====++=###",
+  "#=W+=..+++..=!!+=####",
+  "#=###=##+++##=###+###",
+  "#=...=..+...=..+==###",
+  "#=###=###=.=###=.=###",
+  "#S=++====+=!===++=+C#",
+  "#####################",
+  "#####################",
+] as const;
+
+export const GRID_WIDTH = MAP_LAYOUT[0].length;
+export const GRID_HEIGHT = MAP_LAYOUT.length;
 export const CELL_SIZE = 44;
 export const BOARD_WIDTH = GRID_WIDTH * CELL_SIZE;
 export const BOARD_HEIGHT = GRID_HEIGHT * CELL_SIZE;
@@ -19,31 +38,54 @@ export const INITIAL_GOLD = 180;
 export const INITIAL_CORE_HP = 20;
 export const OVERLOAD_LIMIT = 150;
 export const OVERLOAD_SECONDS = 10;
+export const FRAGILE_WALL_HP = 780;
+export const FRAGILE_WALL_ARMOR = 6;
+export const DANGER_DAMAGE_PER_SECOND = 16;
+export const DANGER_PATH_PENALTY = 0.75;
 
-export const SPAWNS: Point[] = [
-  { x: 0, y: 1 },
-  { x: 0, y: 9 },
-  { x: 12, y: 0 },
-];
+export const TERRAIN_WALLS = new Set<string>();
+export const BUILDABLE_TILES = new Set<string>();
+export const DANGER_TILES = new Set<string>();
+export const ROAD_TILES = new Set<string>();
+export const FRAGILE_WALL_TILES = new Set<string>();
+export const SPAWNS: Point[] = [];
+export let CORE: Point = { x: 0, y: 0 };
 
-export const CORE: Point = { x: 16, y: 10 };
+MAP_LAYOUT.forEach((row, y) => {
+  if (row.length !== GRID_WIDTH) {
+    throw new Error(`Invalid map row width at y=${y}`);
+  }
+  row.split("").forEach((tile, x) => {
+    const key = `${x},${y}`;
+    if (tile === "#") TERRAIN_WALLS.add(key);
+    if (tile === "+" || tile === ".") BUILDABLE_TILES.add(key);
+    if (tile === "=" || tile === "!") ROAD_TILES.add(key);
+    if (tile === "!") DANGER_TILES.add(key);
+    if (tile === "W") FRAGILE_WALL_TILES.add(key);
+    if (tile === "S") SPAWNS.push({ x, y });
+    if (tile === "C") CORE = { x, y };
+  });
+});
 
-export const TERRAIN_WALLS = new Set([
-  "4,1",
-  "4,2",
-  "4,3",
-  "4,8",
-  "4,9",
-  "4,10",
-  "8,5",
-  "9,5",
-  "10,5",
-  "11,5",
-  "13,2",
-  "13,3",
-  "13,7",
-  "13,8",
-]);
+export function terrainAt(x: number, y: number) {
+  return MAP_LAYOUT[y]?.[x] ?? "#";
+}
+
+export function createFragileWalls(startId: number): FragileWallEntity[] {
+  let currentId = startId;
+  return [...FRAGILE_WALL_TILES].map((key) => {
+    const [x, y] = key.split(",").map(Number);
+    currentId += 1;
+    return {
+      id: currentId,
+      x,
+      y,
+      hp: FRAGILE_WALL_HP,
+      maxHp: FRAGILE_WALL_HP,
+      armor: FRAGILE_WALL_ARMOR,
+    };
+  });
+}
 
 export const TOWERS: Record<TowerType, TowerConfig> = {
   gun: {

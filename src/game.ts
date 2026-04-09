@@ -1,16 +1,19 @@
 import {
   CORE,
+  DANGER_DAMAGE_PER_SECOND,
+  DANGER_TILES,
   ENEMIES,
-  GRID_HEIGHT,
-  GRID_WIDTH,
   INITIAL_CORE_HP,
   INITIAL_GOLD,
   ITEMS,
   OVERLOAD_LIMIT,
   OVERLOAD_SECONDS,
   SPAWNS,
+  BUILDABLE_TILES,
+  FRAGILE_WALL_TILES,
   TERRAIN_WALLS,
   TOWERS,
+  createFragileWalls,
   generateWave,
   getEnemyMultiplier,
   getTowerStats,
@@ -19,6 +22,7 @@ import {
 import { computePathBundle, toKey } from "./pathfinding";
 import type {
   EnemyEntity,
+  FragileWallEntity,
   InventoryEntry,
   ItemEntity,
   ItemType,
@@ -48,6 +52,7 @@ export class GameState {
   selectedItem: ItemType | null = null;
   towers: TowerEntity[] = [];
   items: ItemEntity[] = [];
+  fragileWalls: FragileWallEntity[] = [];
   enemies: EnemyEntity[] = [];
   inventory: InventoryEntry[] = [];
   shopOffers: ShopOffer[] = [];
@@ -75,16 +80,11 @@ export class GameState {
   pathBundle: PathBundle;
 
   constructor() {
-    for (let y = 0; y < GRID_HEIGHT; y += 1) {
-      for (let x = 0; x < GRID_WIDTH; x += 1) {
-        const key = toKey(x, y);
-        if (TERRAIN_WALLS.has(key)) continue;
-        if (key === toKey(CORE.x, CORE.y)) continue;
-        if (SPAWNS.some((spawn) => spawn.x === x && spawn.y === y)) continue;
-        this.buildable.add(key);
-      }
-    }
-    this.pathBundle = computePathBundle(this.towers, this.items, TERRAIN_WALLS);
+    BUILDABLE_TILES.forEach((key) => this.buildable.add(key));
+    this.fragileWalls = createFragileWalls(this.nextEntityId);
+    const maxId = this.fragileWalls.reduce((value, wall) => Math.max(value, wall.id), this.nextEntityId);
+    this.nextEntityId = maxId;
+    this.pathBundle = computePathBundle(this.towers, this.items, this.fragileWalls, TERRAIN_WALLS, DANGER_TILES);
     this.refreshShop();
   }
 
@@ -262,9 +262,12 @@ export class GameState {
       isCore: key === toKey(CORE.x, CORE.y),
       spawnIndex: SPAWNS.findIndex((spawn) => spawn.x === x && spawn.y === y),
       isWall: TERRAIN_WALLS.has(key),
+      isDanger: DANGER_TILES.has(key),
+      isFragileWallTile: FRAGILE_WALL_TILES.has(key),
       isBuildable: this.buildable.has(key),
       tower: this.towers.find((tower) => tower.x === x && tower.y === y),
       item: this.items.find((item) => item.x === x && item.y === y),
+      fragileWall: this.fragileWalls.find((wall) => wall.x === x && wall.y === y),
       isPath:
         [...this.pathBundle.normalPaths.values()].some((path) => path.some((point) => point.x === x && point.y === y)) ||
         [...this.pathBundle.forcedPaths.values()].some((path) => path.some((point) => point.x === x && point.y === y)),
@@ -294,7 +297,12 @@ export class GameState {
 
   private canPlaceAt(x: number, y: number) {
     const key = toKey(x, y);
-    return this.buildable.has(key) && !this.towers.some((tower) => tower.x === x && tower.y === y) && !this.items.some((item) => item.x === x && item.y === y);
+    return (
+      this.buildable.has(key) &&
+      !this.towers.some((tower) => tower.x === x && tower.y === y) &&
+      !this.items.some((item) => item.x === x && item.y === y) &&
+      !this.fragileWalls.some((wall) => wall.x === x && wall.y === y)
+    );
   }
 
   private spawnEnemies() {
@@ -369,6 +377,9 @@ export class GameState {
 
       const wire = this.items.find((item) => item.type === "wire" && item.x === current.x && item.y === current.y);
       if (wire) enemy.slowUntil = Math.max(enemy.slowUntil, this.elapsed + 0.6);
+      if (DANGER_TILES.has(toKey(current.x, current.y))) {
+        enemy.hp -= DANGER_DAMAGE_PER_SECOND * dt;
+      }
 
       const mine = this.items.find((item) => item.type === "mine" && item.x === current.x && item.y === current.y && !item.triggered);
       if (mine) {
@@ -419,6 +430,7 @@ export class GameState {
       return false;
     });
     this.towers = this.towers.filter((tower) => tower.hp > 0);
+    this.fragileWalls = this.fragileWalls.filter((wall) => wall.hp > 0);
     this.items = this.items.filter((item) => {
       if (item.type === "mine" && item.triggered) return false;
       if (item.expiresAt && item.expiresAt <= this.elapsed) return false;
@@ -429,7 +441,7 @@ export class GameState {
 
   private recomputePaths() {
     const previousPhase = this.pathBundle.phase;
-    this.pathBundle = computePathBundle(this.towers, this.items, TERRAIN_WALLS);
+    this.pathBundle = computePathBundle(this.towers, this.items, this.fragileWalls, TERRAIN_WALLS, DANGER_TILES);
     if (this.phase === "battle" && previousPhase !== "forced" && this.pathBundle.phase === "forced" && !this.lastWaveForced) {
       this.lastWaveForced = true;
       this.stats.forcedCount += 1;
@@ -478,6 +490,7 @@ export class GameState {
 
   private findBlockingAt(x: number, y: number) {
     return (
+      this.fragileWalls.find((wall) => wall.x === x && wall.y === y) ??
       this.towers.find((tower) => tower.x === x && tower.y === y) ??
       this.items.find((item) => item.x === x && item.y === y && ITEMS[item.type].blocking)
     );
@@ -501,7 +514,7 @@ export class GameState {
     return undefined;
   }
 
-  private attackStructure(enemy: EnemyEntity, target: TowerEntity | ItemEntity, towerDamageMultiplier: number, dt: number) {
+  private attackStructure(enemy: EnemyEntity, target: TowerEntity | ItemEntity | FragileWallEntity, towerDamageMultiplier: number, dt: number) {
     const config = ENEMIES[enemy.type];
     if (distance(enemy, target) > config.attackRange + 0.1) {
       const dx = Math.sign(target.x - enemy.x);
@@ -512,10 +525,9 @@ export class GameState {
     }
     if (enemy.cooldownLeft > 0) return;
     const baseDamage = Math.round(config.towerDamage * towerDamageMultiplier * (this.pathBundle.phase === "forced" ? 1.5 : 1));
-    const armor = "level" in target ? this.getTowerStatsWithAuras(target).armor : ITEMS[target.type].armor ?? 0;
+    const armor = this.structureArmor(target);
     const actual = Math.max(1, baseDamage - armor);
-    if ("level" in target) target.hp -= actual;
-    else target.hp = (target.hp ?? 0) - actual;
+    this.damageStructure(target, actual);
     enemy.cooldownLeft = config.attackCooldown;
     if (config.frenzy && enemy.targetTowerId === target.id) enemy.speedMultiplier = Math.min(enemy.speedMultiplier + 0.12, 1.6);
     else enemy.targetTowerId = target.id;
@@ -533,6 +545,9 @@ export class GameState {
   private damageStructuresInRadius(x: number, y: number, radius: number, damage: number) {
     this.towers.forEach((tower) => {
       if (distance({ x, y }, tower) <= radius) tower.hp -= Math.max(1, damage - this.getTowerStatsWithAuras(tower).armor);
+    });
+    this.fragileWalls.forEach((wall) => {
+      if (distance({ x, y }, wall) <= radius) wall.hp -= Math.max(1, damage - wall.armor);
     });
     this.items.forEach((item) => {
       if ((item.hp ?? 0) > 0 && distance({ x, y }, item) <= radius) item.hp = (item.hp ?? 0) - Math.max(1, damage - (ITEMS[item.type].armor ?? 0));
@@ -601,6 +616,24 @@ export class GameState {
       return 5;
     }
     return target.type === "decoy" ? -1 : ITEMS[target.type].blocking ? 2 : 3;
+  }
+
+  private structureArmor(target: TowerEntity | ItemEntity | FragileWallEntity) {
+    if ("level" in target) return this.getTowerStatsWithAuras(target).armor;
+    if ("type" in target) return ITEMS[target.type].armor ?? 0;
+    return target.armor;
+  }
+
+  private damageStructure(target: TowerEntity | ItemEntity | FragileWallEntity, amount: number) {
+    if ("level" in target) {
+      target.hp -= amount;
+      return;
+    }
+    if ("type" in target) {
+      target.hp = (target.hp ?? 0) - amount;
+      return;
+    }
+    target.hp -= amount;
   }
 
   private refreshShop() {

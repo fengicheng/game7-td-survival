@@ -146,8 +146,23 @@ button:disabled {
   background: rgba(80, 205, 161, 0.08);
 }
 
+.cell.road {
+  background:
+    linear-gradient(180deg, rgba(111, 142, 152, 0.09), rgba(49, 68, 75, 0.12));
+}
+
 .cell.wall {
   background: linear-gradient(135deg, #364d55, #26383f);
+}
+
+.cell.fragile-wall {
+  background: linear-gradient(135deg, #5d5045, #3b312b);
+}
+
+.cell.danger {
+  background:
+    linear-gradient(135deg, rgba(255, 130, 82, 0.26), rgba(179, 58, 48, 0.18)),
+    repeating-linear-gradient(135deg, rgba(255, 199, 111, 0.14) 0 6px, transparent 6px 12px);
 }
 
 .cell.spawn {
@@ -217,6 +232,10 @@ button:disabled {
 
 .item-tag {
   font-size: 11px;
+}
+
+.fragile-tag {
+  background: linear-gradient(135deg, #d7c0a6, #9f7c63);
 }
 
 .hp {

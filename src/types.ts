@@ -100,6 +100,15 @@ export interface ItemEntity {
   triggered?: boolean;
 }
 
+export interface FragileWallEntity {
+  id: number;
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  armor: number;
+}
+
 export interface EnemyEntity {
   id: number;
   type: EnemyType;
