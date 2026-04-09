@@ -151,6 +151,7 @@ function renderStats() {
     <p class="message">${game.message}</p>
     <p>阶段：<strong>${labelPhase(game.phase)}</strong></p>
     <p>多个出发点会分别寻路，所有防御塔都会堵路。</p>
+    <p>突破策略：${game.breakthroughPlan.summary}</p>
     <p>过载状态：${overload}</p>
     <p>强制通路触发：${game.stats.forcedCount} 次</p>
     <p>击杀总数：${game.stats.kills}</p>

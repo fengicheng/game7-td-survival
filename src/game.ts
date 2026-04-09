@@ -3,6 +3,8 @@ import {
   DANGER_DAMAGE_PER_SECOND,
   DANGER_TILES,
   ENEMIES,
+  GRID_HEIGHT,
+  GRID_WIDTH,
   INITIAL_CORE_HP,
   INITIAL_GOLD,
   ITEMS,
@@ -41,6 +43,14 @@ interface TemporaryBuffs {
   repairDiscountWaves: number;
 }
 
+interface BreakthroughPlan {
+  mode: "default" | "force" | "wall";
+  wallId?: number;
+  forceCost: number;
+  wallCost?: number;
+  summary: string;
+}
+
 export class GameState {
   phase: Phase = "prep";
   wave = 1;
@@ -63,6 +73,11 @@ export class GameState {
   overloadCounter = 0;
   lastWaveForced = false;
   waveLeaked = false;
+  breakthroughPlan: BreakthroughPlan = {
+    mode: "default",
+    forceCost: 0,
+    summary: "正常推进",
+  };
   stats = {
     kills: 0,
     forcedCount: 0,
@@ -85,6 +100,7 @@ export class GameState {
     const maxId = this.fragileWalls.reduce((value, wall) => Math.max(value, wall.id), this.nextEntityId);
     this.nextEntityId = maxId;
     this.pathBundle = computePathBundle(this.towers, this.items, this.fragileWalls, TERRAIN_WALLS, DANGER_TILES);
+    this.evaluateBreakthroughPlan();
     this.refreshShop();
   }
 
@@ -210,6 +226,7 @@ export class GameState {
     }
     this.lastWaveForced = this.pathBundle.phase === "forced";
     if (this.lastWaveForced) this.stats.forcedCount += 1;
+    this.evaluateBreakthroughPlan();
     this.message = this.lastWaveForced ? "战斗开始，敌人获得突破强化。" : "战斗开始。";
     return true;
   }
@@ -340,6 +357,12 @@ export class GameState {
       enemy.cooldownLeft = Math.max(0, enemy.cooldownLeft - dt);
       enemy.route = this.currentPathForSpawn(enemy.spawnId);
 
+      const wallTarget = this.activeBreakWallTarget(enemy);
+      if (wallTarget) {
+        this.attackStructure(enemy, wallTarget, multiplier.towerDamage, dt);
+        return;
+      }
+
       const forcedTarget = this.pickSaboteurTarget(enemy, lure);
       if (forcedTarget) {
         this.attackStructure(enemy, forcedTarget, multiplier.towerDamage, dt);
@@ -442,6 +465,7 @@ export class GameState {
   private recomputePaths() {
     const previousPhase = this.pathBundle.phase;
     this.pathBundle = computePathBundle(this.towers, this.items, this.fragileWalls, TERRAIN_WALLS, DANGER_TILES);
+    this.evaluateBreakthroughPlan();
     if (this.phase === "battle" && previousPhase !== "forced" && this.pathBundle.phase === "forced" && !this.lastWaveForced) {
       this.lastWaveForced = true;
       this.stats.forcedCount += 1;
@@ -511,6 +535,17 @@ export class GameState {
         .sort((a, b) => this.targetPriority(a) - this.targetPriority(b))[0];
       if (target) return target;
     }
+    return undefined;
+  }
+
+  private activeBreakWallTarget(enemy: EnemyEntity) {
+    if (this.breakthroughPlan.mode !== "wall" || this.breakthroughPlan.wallId === undefined) return undefined;
+    const wall = this.fragileWalls.find((entry) => entry.id === this.breakthroughPlan.wallId);
+    if (!wall) return undefined;
+    const config = ENEMIES[enemy.type];
+    if (config.activeSaboteur || config.boss) return wall;
+    if (this.pathBundle.phase === "forced") return wall;
+    if (distance(enemy, wall) <= 8) return wall;
     return undefined;
   }
 
@@ -657,6 +692,196 @@ export class GameState {
     if (this.buffs.attackBoostWaves > 0) this.buffs.attackBoostWaves -= 1;
     if (this.buffs.fortifyWaves > 0) this.buffs.fortifyWaves -= 1;
     if (this.buffs.repairDiscountWaves > 0) this.buffs.repairDiscountWaves -= 1;
+  }
+
+  private evaluateBreakthroughPlan() {
+    const forceCost = this.estimateCurrentAdvanceCost();
+    const wallPlans = this.fragileWalls
+      .map((wall) => ({
+        wall,
+        cost: this.estimateWallBreakCost(wall),
+      }))
+      .filter((entry) => Number.isFinite(entry.cost))
+      .sort((a, b) => a.cost - b.cost);
+
+    const bestWall = wallPlans[0];
+    const threshold = 4;
+    const canPreferWall =
+      bestWall &&
+      (this.pathBundle.phase === "forced" || forceCost >= 26) &&
+      bestWall.cost + threshold < forceCost;
+
+    if (canPreferWall) {
+      this.breakthroughPlan = {
+        mode: "wall",
+        wallId: bestWall.wall.id,
+        forceCost,
+        wallCost: bestWall.cost,
+        summary: `优先破墙：墙体成本 ${bestWall.cost.toFixed(1)}，强拆成本 ${forceCost.toFixed(1)}`,
+      };
+      return;
+    }
+
+    this.breakthroughPlan = {
+      mode: this.pathBundle.phase === "forced" ? "force" : "default",
+      forceCost,
+      summary:
+        this.pathBundle.phase === "forced"
+          ? `优先强拆：当前强制通路成本 ${forceCost.toFixed(1)}`
+          : `正常推进：当前主路线成本 ${forceCost.toFixed(1)}`,
+    };
+  }
+
+  private estimateCurrentAdvanceCost() {
+    if (this.pathBundle.phase === "forced") {
+      const path = this.pathBundle.breachPath.length ? this.pathBundle.breachPath : [...this.pathBundle.forcedPaths.values()][0] ?? [];
+      return this.estimatePathCost(path, true);
+    }
+
+    const paths = [...this.pathBundle.normalPaths.values()].filter((path) => path.length > 0);
+    if (!paths.length) return 9999;
+    const total = paths.reduce((sum, path) => sum + this.estimatePathCost(path, false), 0);
+    return total / paths.length;
+  }
+
+  private estimatePathCost(path: Point[], includeBlockers: boolean) {
+    if (!path.length) return 9999;
+    const threat = this.estimatePathThreat(path);
+    const blockerCost = includeBlockers ? this.estimateBlockerCost(path) : 0;
+    return path.length + threat.fire * 1.4 + threat.control * 1.2 + blockerCost;
+  }
+
+  private estimateBlockerCost(path: Point[]) {
+    const blockers = new Set<string>();
+    path.forEach((point) => {
+      const key = toKey(point.x, point.y);
+      if (this.towers.some((tower) => tower.x === point.x && tower.y === point.y)) blockers.add(key);
+      if (this.items.some((item) => item.x === point.x && item.y === point.y && ITEMS[item.type].blocking)) blockers.add(key);
+      if (this.fragileWalls.some((wall) => wall.x === point.x && wall.y === point.y)) blockers.add(key);
+    });
+
+    let total = blockers.size * 12;
+    blockers.forEach((key) => {
+      const tower = this.towers.find((entry) => toKey(entry.x, entry.y) === key);
+      if (tower) {
+        total += tower.hp / 120;
+        return;
+      }
+      const wall = this.fragileWalls.find((entry) => toKey(entry.x, entry.y) === key);
+      if (wall) {
+        total += wall.hp / 120;
+        return;
+      }
+      const item = this.items.find((entry) => toKey(entry.x, entry.y) === key && ITEMS[entry.type].blocking);
+      if (item?.hp) total += item.hp / 100;
+    });
+    return total;
+  }
+
+  private estimatePathThreat(path: Point[]) {
+    let fire = 0;
+    let control = 0;
+
+    this.towers.forEach((tower) => {
+      const stats = this.getTowerStatsWithAuras(tower);
+      const coversPath = path.some((point) => distance(point, tower) <= stats.range + 0.1);
+      if (!coversPath) return;
+      const dps = stats.damage / Math.max(stats.cooldown, 0.2);
+      fire += Math.max(0.5, dps * 0.08);
+      if (tower.type === "cannon") fire += 1.5;
+      if (tower.type === "sniper") fire += 1.0;
+      if (tower.type === "slow") control += 2.5;
+    });
+
+    path.forEach((point) => {
+      if (DANGER_TILES.has(toKey(point.x, point.y))) fire += 1.2;
+    });
+
+    return { fire, control };
+  }
+
+  private estimateWallBreakCost(wall: FragileWallEntity) {
+    const approach = this.estimateWallApproachCost(wall);
+    const postPath = this.estimatePathFromWall(wall);
+    if (!Number.isFinite(postPath.cost)) return Number.POSITIVE_INFINITY;
+    const breakEfficiency = this.currentWaveBreakEfficiency();
+    const wallBreak = wall.hp / Math.max(1, breakEfficiency);
+    return approach + wallBreak + postPath.cost;
+  }
+
+  private estimateWallApproachCost(wall: FragileWallEntity) {
+    let best = Number.POSITIVE_INFINITY;
+    SPAWNS.forEach((spawn) => {
+      best = Math.min(best, Math.abs(spawn.x - wall.x) + Math.abs(spawn.y - wall.y));
+    });
+    return best;
+  }
+
+  private estimatePathFromWall(wall: FragileWallEntity) {
+    const candidates: Point[] = [
+      { x: wall.x + 1, y: wall.y },
+      { x: wall.x - 1, y: wall.y },
+      { x: wall.x, y: wall.y + 1 },
+      { x: wall.x, y: wall.y - 1 },
+    ];
+
+    let bestCost = Number.POSITIVE_INFINITY;
+    for (const candidate of candidates) {
+      if (!this.isCandidateWalkable(candidate, wall)) continue;
+      const length = this.estimateApproxDistanceToCore(candidate);
+      const syntheticPath = this.syntheticPath(candidate, CORE);
+      const threat = this.estimatePathThreat(syntheticPath);
+      const cost = length * 0.9 + threat.fire * 1.2 + threat.control;
+      bestCost = Math.min(bestCost, cost);
+    }
+
+    return { cost: bestCost };
+  }
+
+  private isCandidateWalkable(point: Point, ignoredWall: FragileWallEntity) {
+    if (point.x < 0 || point.y < 0 || point.x >= GRID_WIDTH || point.y >= GRID_HEIGHT) return false;
+    const key = toKey(point.x, point.y);
+    if (TERRAIN_WALLS.has(key)) return false;
+    const otherWall = this.fragileWalls.find((wall) => wall.id !== ignoredWall.id && wall.x === point.x && wall.y === point.y);
+    if (otherWall) return false;
+    if (this.towers.some((tower) => tower.x === point.x && tower.y === point.y)) return false;
+    if (this.items.some((item) => item.x === point.x && item.y === point.y && ITEMS[item.type].blocking)) return false;
+    return true;
+  }
+
+  private estimateApproxDistanceToCore(point: Point) {
+    return Math.abs(point.x - CORE.x) + Math.abs(point.y - CORE.y);
+  }
+
+  private syntheticPath(start: Point, end: Point) {
+    const path: Point[] = [];
+    let x = start.x;
+    let y = start.y;
+    path.push({ x, y });
+    while (x !== end.x) {
+      x += Math.sign(end.x - x);
+      path.push({ x, y });
+    }
+    while (y !== end.y) {
+      y += Math.sign(end.y - y);
+      path.push({ x, y });
+    }
+    return path;
+  }
+
+  private currentWaveBreakEfficiency() {
+    const planned = this.wavePlan.slice(this.spawnCursor).reduce((sum, spawn) => sum + this.breakWeight(spawn.type), 0);
+    const active = this.enemies.reduce((sum, enemy) => sum + this.breakWeight(enemy.type), 0);
+    return Math.max(1, planned + active);
+  }
+
+  private breakWeight(type: EnemyEntity["type"]) {
+    if (type === "light") return 1.0;
+    if (type === "heavy") return 1.3;
+    if (type === "engineer") return 2.8;
+    if (type === "beast") return 1.4;
+    if (type === "destroyer") return 1.6;
+    return 4.0;
   }
 }
 
