@@ -338,9 +338,12 @@ button:disabled {
   display: grid;
   gap: 8px;
   margin-top: 12px;
-  padding: 12px;
-  border-radius: 14px;
-  background: var(--panel-soft);
+  padding: 14px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(48, 66, 77, 0.86), rgba(29, 41, 48, 0.9)),
+    var(--panel-soft);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .selected-card h3 {
@@ -348,8 +351,51 @@ button:disabled {
 }
 
 .selected-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
+  margin-top: 6px;
+}
+
+.selected-actions button {
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.12s ease;
+}
+
+.selected-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.selected-actions button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.selected-actions .action-upgrade {
+  background: linear-gradient(135deg, #f3b34e, #ffd975);
+  color: #182127;
+  box-shadow: 0 8px 18px rgba(243, 179, 78, 0.22);
+}
+
+.selected-actions .action-sell {
+  background: linear-gradient(135deg, #ff7b71, #ffb174);
+  color: #24181a;
+  box-shadow: 0 8px 18px rgba(255, 123, 113, 0.2);
+}
+
+.selected-actions button:disabled {
+  background: linear-gradient(180deg, rgba(69, 87, 96, 0.76), rgba(46, 60, 68, 0.82));
+  color: rgba(233, 243, 241, 0.68);
+  box-shadow: none;
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .tower-bar {

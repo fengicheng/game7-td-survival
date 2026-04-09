@@ -440,8 +440,8 @@ function renderSelected() {
       <p>维修：${game.repairCost(tower)} 金币</p>
       <p>拆除返还：${sellValue} 金币</p>
       <div class="selected-actions">
-        <button id="upgrade-selected" ${game.phase !== "prep" || tower.level >= 3 ? "disabled" : ""}>升级</button>
-        <button id="sell-selected" ${game.phase !== "prep" ? "disabled" : ""}>拆除返还</button>
+        <button id="upgrade-selected" class="action-upgrade" ${game.phase !== "prep" || tower.level >= 3 ? "disabled" : ""}>升级</button>
+        <button id="sell-selected" class="action-sell" ${game.phase !== "prep" ? "disabled" : ""}>拆除返还</button>
       </div>
     </div>
   `;
