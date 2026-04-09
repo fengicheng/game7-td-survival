@@ -372,6 +372,15 @@ button:disabled {
     linear-gradient(180deg, rgba(8, 15, 18, 0.82), rgba(8, 15, 18, 0.92)),
     radial-gradient(circle at 20% 20%, rgba(105, 202, 184, 0.16), transparent 28%),
     radial-gradient(circle at 80% 15%, rgba(255, 124, 86, 0.16), transparent 22%);
+  transition:
+    opacity 0.22s ease,
+    visibility 0.22s ease;
+}
+
+.intro-screen.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .intro-card {

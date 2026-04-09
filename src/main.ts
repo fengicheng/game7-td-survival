@@ -377,7 +377,7 @@ function renderDynamic() {
   repairBtn.hidden = game.phase !== "prep";
   shopCloseBtn.hidden = game.phase !== "shop";
   shopPanelEl.hidden = game.phase !== "shop";
-  introEl.hidden = !introVisible;
+  introEl.classList.toggle("is-hidden", !introVisible);
 }
 
 function renderStaticPanels() {
@@ -443,6 +443,7 @@ shopCloseBtn.addEventListener("click", () => {
 
 enterGameBtn.addEventListener("click", () => {
   introVisible = false;
+  introEl.classList.add("is-hidden");
   renderDynamic();
 });
 
