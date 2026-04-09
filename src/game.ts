@@ -3,8 +3,6 @@ import {
   DANGER_DAMAGE_PER_SECOND,
   DANGER_TILES,
   ENEMIES,
-  GRID_HEIGHT,
-  GRID_WIDTH,
   INITIAL_CORE_HP,
   INITIAL_GOLD,
   ITEMS,
@@ -24,6 +22,7 @@ import {
 import { computePathBundle, toKey } from "./pathfinding";
 import type {
   EnemyEntity,
+  EnemyType,
   FragileWallEntity,
   InventoryEntry,
   ItemEntity,
@@ -342,7 +341,7 @@ export class GameState {
         speedMultiplier: this.lastWaveForced ? 1.1 : 1,
         slowUntil: 0,
         cooldownLeft: 0,
-        route: this.currentPathForSpawn(plan.spawnId),
+        route: this.currentPathForSpawn(plan.spawnId, plan.type),
         routeIndex: 0,
       });
     }
@@ -355,7 +354,7 @@ export class GameState {
     this.enemies.forEach((enemy) => {
       const config = ENEMIES[enemy.type];
       enemy.cooldownLeft = Math.max(0, enemy.cooldownLeft - dt);
-      enemy.route = this.currentPathForSpawn(enemy.spawnId);
+      enemy.route = this.currentPathForSpawn(enemy.spawnId, enemy.type);
 
       const wallTarget = this.activeBreakWallTarget(enemy);
       if (wallTarget) {
@@ -505,11 +504,22 @@ export class GameState {
     }
   }
 
-  private currentPathForSpawn(spawnId: number) {
+  private currentPathForSpawn(spawnId: number, enemyType: EnemyType) {
+    const key = this.routeKey(spawnId, enemyType);
+    const normalPath = this.pathBundle.unitNormalPaths.get(key) ?? [];
+    const forcedPath = this.pathBundle.unitForcedPaths.get(key) ?? [];
+    const normalCost = this.pathBundle.unitNormalCosts.get(key) ?? Number.POSITIVE_INFINITY;
+    const forcedCost = this.pathBundle.unitForcedCosts.get(key) ?? Number.POSITIVE_INFINITY;
+
     if (this.pathBundle.phase === "forced") {
-      return this.pathBundle.forcedPaths.get(spawnId) ?? [];
+      return forcedPath.length ? forcedPath : normalPath;
     }
-    return this.pathBundle.normalPaths.get(spawnId) ?? this.pathBundle.forcedPaths.get(spawnId) ?? [];
+
+    if (forcedPath.length && forcedCost + 0.25 < normalCost) {
+      return forcedPath;
+    }
+
+    return normalPath.length ? normalPath : forcedPath;
   }
 
   private findBlockingAt(x: number, y: number) {
@@ -695,193 +705,72 @@ export class GameState {
   }
 
   private evaluateBreakthroughPlan() {
-    const forceCost = this.estimateCurrentAdvanceCost();
-    const wallPlans = this.fragileWalls
-      .map((wall) => ({
-        wall,
-        cost: this.estimateWallBreakCost(wall),
-      }))
-      .filter((entry) => Number.isFinite(entry.cost))
-      .sort((a, b) => a.cost - b.cost);
+    const activeTypes = this.activeEnemyTypes();
+    let normalTotal = 0;
+    let forcedTotal = 0;
+    let normalCount = 0;
+    let forcedCount = 0;
 
-    const bestWall = wallPlans[0];
-    const threshold = 4;
-    const canPreferWall =
-      bestWall &&
-      (this.pathBundle.phase === "forced" || forceCost >= 26) &&
-      bestWall.cost + threshold < forceCost;
+    activeTypes.forEach((enemyType) => {
+      SPAWNS.forEach((_, spawnId) => {
+        const key = this.routeKey(spawnId, enemyType);
+        const normalCost = this.pathBundle.unitNormalCosts.get(key) ?? Number.POSITIVE_INFINITY;
+        const forcedCost = this.pathBundle.unitForcedCosts.get(key) ?? Number.POSITIVE_INFINITY;
+        if (Number.isFinite(normalCost)) {
+          normalTotal += normalCost;
+          normalCount += 1;
+        }
+        if (Number.isFinite(forcedCost)) {
+          forcedTotal += forcedCost;
+          forcedCount += 1;
+        }
+      });
+    });
 
-    if (canPreferWall) {
+    const averageNormal = normalCount ? normalTotal / normalCount : Number.POSITIVE_INFINITY;
+    const averageForced = forcedCount ? forcedTotal / forcedCount : Number.POSITIVE_INFINITY;
+    const wallTarget = this.primaryBreakWallTarget();
+
+    if (wallTarget && averageForced + 0.5 < averageNormal) {
       this.breakthroughPlan = {
         mode: "wall",
-        wallId: bestWall.wall.id,
-        forceCost,
-        wallCost: bestWall.cost,
-        summary: `优先破墙：墙体成本 ${bestWall.cost.toFixed(1)}，强拆成本 ${forceCost.toFixed(1)}`,
+        wallId: wallTarget.id,
+        forceCost: averageNormal,
+        wallCost: averageForced,
+        summary: `最优突破：优先破墙，平均成本 ${formatCost(averageForced)} < ${formatCost(averageNormal)}`,
       };
       return;
     }
 
     this.breakthroughPlan = {
       mode: this.pathBundle.phase === "forced" ? "force" : "default",
-      forceCost,
+      forceCost: Number.isFinite(averageNormal) ? averageNormal : averageForced,
+      wallCost: Number.isFinite(averageForced) ? averageForced : undefined,
       summary:
         this.pathBundle.phase === "forced"
-          ? `优先强拆：当前强制通路成本 ${forceCost.toFixed(1)}`
-          : `正常推进：当前主路线成本 ${forceCost.toFixed(1)}`,
+          ? `最优突破：强拆优先，平均成本 ${formatCost(Number.isFinite(averageForced) ? averageForced : averageNormal)}`
+          : `最优寻路：正常推进成本 ${formatCost(averageNormal)}，突破成本 ${formatCost(averageForced)}`,
     };
   }
 
-  private estimateCurrentAdvanceCost() {
-    if (this.pathBundle.phase === "forced") {
-      const path = this.pathBundle.breachPath.length ? this.pathBundle.breachPath : [...this.pathBundle.forcedPaths.values()][0] ?? [];
-      return this.estimatePathCost(path, true);
+  private activeEnemyTypes() {
+    const types = new Set<EnemyType>();
+    this.wavePlan.slice(this.spawnCursor).forEach((spawn) => types.add(spawn.type));
+    this.enemies.forEach((enemy) => types.add(enemy.type));
+    if (!types.size) types.add("light");
+    return [...types];
+  }
+
+  private primaryBreakWallTarget() {
+    for (const point of this.pathBundle.breachPath) {
+      const wall = this.fragileWalls.find((entry) => entry.x === point.x && entry.y === point.y);
+      if (wall) return wall;
     }
-
-    const paths = [...this.pathBundle.normalPaths.values()].filter((path) => path.length > 0);
-    if (!paths.length) return 9999;
-    const total = paths.reduce((sum, path) => sum + this.estimatePathCost(path, false), 0);
-    return total / paths.length;
+    return undefined;
   }
 
-  private estimatePathCost(path: Point[], includeBlockers: boolean) {
-    if (!path.length) return 9999;
-    const threat = this.estimatePathThreat(path);
-    const blockerCost = includeBlockers ? this.estimateBlockerCost(path) : 0;
-    return path.length + threat.fire * 1.4 + threat.control * 1.2 + blockerCost;
-  }
-
-  private estimateBlockerCost(path: Point[]) {
-    const blockers = new Set<string>();
-    path.forEach((point) => {
-      const key = toKey(point.x, point.y);
-      if (this.towers.some((tower) => tower.x === point.x && tower.y === point.y)) blockers.add(key);
-      if (this.items.some((item) => item.x === point.x && item.y === point.y && ITEMS[item.type].blocking)) blockers.add(key);
-      if (this.fragileWalls.some((wall) => wall.x === point.x && wall.y === point.y)) blockers.add(key);
-    });
-
-    let total = blockers.size * 12;
-    blockers.forEach((key) => {
-      const tower = this.towers.find((entry) => toKey(entry.x, entry.y) === key);
-      if (tower) {
-        total += tower.hp / 120;
-        return;
-      }
-      const wall = this.fragileWalls.find((entry) => toKey(entry.x, entry.y) === key);
-      if (wall) {
-        total += wall.hp / 120;
-        return;
-      }
-      const item = this.items.find((entry) => toKey(entry.x, entry.y) === key && ITEMS[entry.type].blocking);
-      if (item?.hp) total += item.hp / 100;
-    });
-    return total;
-  }
-
-  private estimatePathThreat(path: Point[]) {
-    let fire = 0;
-    let control = 0;
-
-    this.towers.forEach((tower) => {
-      const stats = this.getTowerStatsWithAuras(tower);
-      const coversPath = path.some((point) => distance(point, tower) <= stats.range + 0.1);
-      if (!coversPath) return;
-      const dps = stats.damage / Math.max(stats.cooldown, 0.2);
-      fire += Math.max(0.5, dps * 0.08);
-      if (tower.type === "cannon") fire += 1.5;
-      if (tower.type === "sniper") fire += 1.0;
-      if (tower.type === "slow") control += 2.5;
-    });
-
-    path.forEach((point) => {
-      if (DANGER_TILES.has(toKey(point.x, point.y))) fire += 1.2;
-    });
-
-    return { fire, control };
-  }
-
-  private estimateWallBreakCost(wall: FragileWallEntity) {
-    const approach = this.estimateWallApproachCost(wall);
-    const postPath = this.estimatePathFromWall(wall);
-    if (!Number.isFinite(postPath.cost)) return Number.POSITIVE_INFINITY;
-    const breakEfficiency = this.currentWaveBreakEfficiency();
-    const wallBreak = wall.hp / Math.max(1, breakEfficiency);
-    return approach + wallBreak + postPath.cost;
-  }
-
-  private estimateWallApproachCost(wall: FragileWallEntity) {
-    let best = Number.POSITIVE_INFINITY;
-    SPAWNS.forEach((spawn) => {
-      best = Math.min(best, Math.abs(spawn.x - wall.x) + Math.abs(spawn.y - wall.y));
-    });
-    return best;
-  }
-
-  private estimatePathFromWall(wall: FragileWallEntity) {
-    const candidates: Point[] = [
-      { x: wall.x + 1, y: wall.y },
-      { x: wall.x - 1, y: wall.y },
-      { x: wall.x, y: wall.y + 1 },
-      { x: wall.x, y: wall.y - 1 },
-    ];
-
-    let bestCost = Number.POSITIVE_INFINITY;
-    for (const candidate of candidates) {
-      if (!this.isCandidateWalkable(candidate, wall)) continue;
-      const length = this.estimateApproxDistanceToCore(candidate);
-      const syntheticPath = this.syntheticPath(candidate, CORE);
-      const threat = this.estimatePathThreat(syntheticPath);
-      const cost = length * 0.9 + threat.fire * 1.2 + threat.control;
-      bestCost = Math.min(bestCost, cost);
-    }
-
-    return { cost: bestCost };
-  }
-
-  private isCandidateWalkable(point: Point, ignoredWall: FragileWallEntity) {
-    if (point.x < 0 || point.y < 0 || point.x >= GRID_WIDTH || point.y >= GRID_HEIGHT) return false;
-    const key = toKey(point.x, point.y);
-    if (TERRAIN_WALLS.has(key)) return false;
-    const otherWall = this.fragileWalls.find((wall) => wall.id !== ignoredWall.id && wall.x === point.x && wall.y === point.y);
-    if (otherWall) return false;
-    if (this.towers.some((tower) => tower.x === point.x && tower.y === point.y)) return false;
-    if (this.items.some((item) => item.x === point.x && item.y === point.y && ITEMS[item.type].blocking)) return false;
-    return true;
-  }
-
-  private estimateApproxDistanceToCore(point: Point) {
-    return Math.abs(point.x - CORE.x) + Math.abs(point.y - CORE.y);
-  }
-
-  private syntheticPath(start: Point, end: Point) {
-    const path: Point[] = [];
-    let x = start.x;
-    let y = start.y;
-    path.push({ x, y });
-    while (x !== end.x) {
-      x += Math.sign(end.x - x);
-      path.push({ x, y });
-    }
-    while (y !== end.y) {
-      y += Math.sign(end.y - y);
-      path.push({ x, y });
-    }
-    return path;
-  }
-
-  private currentWaveBreakEfficiency() {
-    const planned = this.wavePlan.slice(this.spawnCursor).reduce((sum, spawn) => sum + this.breakWeight(spawn.type), 0);
-    const active = this.enemies.reduce((sum, enemy) => sum + this.breakWeight(enemy.type), 0);
-    return Math.max(1, planned + active);
-  }
-
-  private breakWeight(type: EnemyEntity["type"]) {
-    if (type === "light") return 1.0;
-    if (type === "heavy") return 1.3;
-    if (type === "engineer") return 2.8;
-    if (type === "beast") return 1.4;
-    if (type === "destroyer") return 1.6;
-    return 4.0;
+  private routeKey(spawnId: number, enemyType: EnemyType) {
+    return `${spawnId}:${enemyType}`;
   }
 }
 
@@ -893,4 +782,8 @@ function towerTotalCost(type: TowerType, level: 1 | 2 | 3) {
 
 function distance(a: Point, b: Point) {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function formatCost(value: number) {
+  return Number.isFinite(value) ? value.toFixed(1) : "∞";
 }

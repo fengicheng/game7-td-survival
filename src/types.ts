@@ -45,6 +45,15 @@ export interface TowerConfig {
   levels: [TowerStats, TowerStats, TowerStats];
 }
 
+export interface EnemyPathWeights {
+  length: number;
+  fire: number;
+  control: number;
+  danger: number;
+  structure: number;
+  wall: number;
+}
+
 export interface EnemyConfig {
   name: string;
   color: string;
@@ -60,6 +69,7 @@ export interface EnemyConfig {
   activeSaboteur?: boolean;
   rangedBreaker?: boolean;
   frenzy?: boolean;
+  pathWeights: EnemyPathWeights;
 }
 
 export interface ItemConfig {
@@ -150,6 +160,10 @@ export interface PathBundle {
   phase: "normal" | "forced";
   normalPaths: Map<number, Point[]>;
   forcedPaths: Map<number, Point[]>;
+  unitNormalPaths: Map<string, Point[]>;
+  unitForcedPaths: Map<string, Point[]>;
+  unitNormalCosts: Map<string, number>;
+  unitForcedCosts: Map<string, number>;
   breachPath: Point[];
   keyBlockers: Set<string>;
 }

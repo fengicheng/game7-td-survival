@@ -51,14 +51,14 @@ app.innerHTML = `
         <p class="intro-kicker">单地图 · 无限波次 · 动态堵路塔防</p>
         <h1>多出发点堵路塔防</h1>
         <p class="intro-copy">
-          每一座防御塔都会改变地形。你需要一边建设火力，一边通过堵路重塑敌人的最短路径，在不断升级的波次中尽量存活更久。
+          每一座防御塔都会改变地形。你需要一边建设火力，一边通过堵路重塑敌人的最优路径，在不断升级的波次中尽量存活更久。
         </p>
         <div class="intro-rules">
           <h2>核心规则</h2>
           <ul>
-            <li>敌人从多个出发点出发，分别计算到终点的最短路径。</li>
-            <li>所有防御塔都会堵路，放置后会立刻改变敌人寻路。</li>
-            <li>如果你堵死了所有正常路线，敌人会集中拆出一条强制通路。</li>
+            <li>敌人从多个出发点出发，分别计算到终点的最优路径。</li>
+            <li>所有防御塔都会堵路，放置后会立刻改变敌人的路线成本与寻路结果。</li>
+            <li>如果你堵死了所有正常路线，敌人会集中拆出一条突破优先路径。</li>
             <li>战斗中不能再建塔，但可以放置地图道具进行临场救火。</li>
             <li>每波结束可进入商店，购买永久道具、战斗道具或临时强化。</li>
             <li>核心生命归零，或场上敌人数失控达到崩溃上限时失败。</li>
@@ -164,13 +164,13 @@ function renderStats() {
     <div><strong>金币</strong><span>${game.gold}</span></div>
     <div><strong>核心</strong><span>${game.coreHp}</span></div>
     <div><strong>敌人数</strong><span>${game.enemies.length}</span></div>
-    <div><strong>路径</strong><span>${game.pathBundle.phase === "forced" ? "强制突破" : "正常寻路"}</span></div>
+    <div><strong>路径</strong><span>${game.pathBundle.phase === "forced" ? "突破优先路径" : "最优寻路"}</span></div>
   `;
 
   statusEl.innerHTML = `
     <p class="message">${game.message}</p>
     <p>阶段：<strong>${labelPhase(game.phase)}</strong></p>
-    <p>多个出发点会分别寻路，所有防御塔都会堵路。</p>
+    <p>多个出发点会分别寻找最优路径，所有防御塔都会堵路。</p>
     <p>突破策略：${game.breakthroughPlan.summary}</p>
     <p>过载状态：${overload}</p>
     <p>强制通路触发：${game.stats.forcedCount} 次</p>
