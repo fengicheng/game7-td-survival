@@ -175,6 +175,12 @@ button:disabled {
     0 0 16px rgba(255, 96, 96, 0.22);
 }
 
+.cell.selected-tower {
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 229, 141, 0.95),
+    0 0 18px rgba(255, 206, 102, 0.24);
+}
+
 .cell.hover {
   outline: 2px solid rgba(255, 220, 138, 0.75);
   outline-offset: -2px;
@@ -241,6 +247,20 @@ button:disabled {
   color: #121519;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
   pointer-events: none;
+  z-index: 3;
+}
+
+.range-ring {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 2px solid color-mix(in srgb, var(--accent, #ffd16a) 80%, white);
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--accent, #ffd16a) 10%, transparent) 0%, transparent 68%);
+  box-shadow:
+    inset 0 0 24px color-mix(in srgb, var(--accent, #ffd16a) 18%, transparent),
+    0 0 24px color-mix(in srgb, var(--accent, #ffd16a) 10%, transparent);
+  z-index: 1;
 }
 
 .message {

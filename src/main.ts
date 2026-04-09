@@ -1,5 +1,5 @@
 import "./styles.css";
-import { BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE, ENEMIES, GRID_HEIGHT, GRID_WIDTH, ITEMS, TOWERS } from "./data";
+import { BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE, ENEMIES, GRID_HEIGHT, GRID_WIDTH, ITEMS, TOWERS, getTowerStats } from "./data";
 import { GameState } from "./game";
 import type { TowerType } from "./types";
 
@@ -99,6 +99,7 @@ function onCellClick(x: number, y: number) {
     renderDynamic();
     return;
   }
+  selectedTowerId = null;
   if (game.selectedItem) {
     game.placeInventoryItem(game.selectedItem, x, y);
     renderFull();
@@ -152,6 +153,7 @@ function renderBoard() {
     if (status.isBreach) cell.classList.add("breach");
     if (status.isKeyBlocker) cell.classList.add("key-blocker");
     if (hoveredCell && hoveredCell.x === x && hoveredCell.y === y) cell.classList.add("hover");
+    if (status.tower && status.tower.id === selectedTowerId) cell.classList.add("selected-tower");
 
     if (status.tower) {
       const tower = status.tower;
@@ -181,6 +183,22 @@ function renderBoard() {
   });
 
   board.querySelectorAll(".enemy").forEach((node) => node.remove());
+  board.querySelectorAll(".range-ring").forEach((node) => node.remove());
+
+  const selectedTower = selectedTowerId ? game.towers.find((entry) => entry.id === selectedTowerId) : undefined;
+  if (selectedTower) {
+    const stats = getTowerStats(selectedTower.type, selectedTower.level);
+    const rangeRing = document.createElement("div");
+    const radius = stats.range * CELL_SIZE;
+    rangeRing.className = "range-ring";
+    rangeRing.style.width = `${radius * 2}px`;
+    rangeRing.style.height = `${radius * 2}px`;
+    rangeRing.style.left = `${selectedTower.x * CELL_SIZE + CELL_SIZE / 2 - radius}px`;
+    rangeRing.style.top = `${selectedTower.y * CELL_SIZE + CELL_SIZE / 2 - radius}px`;
+    rangeRing.style.setProperty("--accent", TOWERS[selectedTower.type].color);
+    board.appendChild(rangeRing);
+  }
+
   game.enemies.forEach((enemy) => {
     const node = document.createElement("div");
     node.className = "enemy";
@@ -291,6 +309,7 @@ function renderSelected() {
     <div class="selected-card">
       <h3>${TOWERS[tower.type].name} Lv${tower.level}</h3>
       <p>生命：${tower.hp} / ${maxHp}</p>
+      <p>攻击范围：${getTowerStats(tower.type, tower.level).range.toFixed(1)} 格</p>
       <p>维修：${game.repairCost(tower)} 金币</p>
       <div class="selected-actions">
         <button id="upgrade-selected" ${game.phase !== "prep" || tower.level >= 3 ? "disabled" : ""}>升级</button>
