@@ -331,15 +331,17 @@ function renderSelected() {
     return;
   }
   const maxHp = game.maxTowerHp(tower);
+  const sellValue = game.sellValue(tower);
   selectedInfoEl.innerHTML = `
     <div class="selected-card">
       <h3>${TOWERS[tower.type].name} Lv${tower.level}</h3>
       <p>生命：${tower.hp} / ${maxHp}</p>
       <p>攻击范围：${getTowerStats(tower.type, tower.level).range.toFixed(1)} 格</p>
       <p>维修：${game.repairCost(tower)} 金币</p>
+      <p>拆除返还：${sellValue} 金币</p>
       <div class="selected-actions">
         <button id="upgrade-selected" ${game.phase !== "prep" || tower.level >= 3 ? "disabled" : ""}>升级</button>
-        <button id="sell-selected" ${game.phase !== "prep" ? "disabled" : ""}>出售</button>
+        <button id="sell-selected" ${game.phase !== "prep" ? "disabled" : ""}>拆除返还</button>
       </div>
     </div>
   `;

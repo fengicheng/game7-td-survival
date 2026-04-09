@@ -165,8 +165,10 @@ export class GameState {
     const index = this.towers.findIndex((entry) => entry.id === id);
     if (index === -1) return false;
     const tower = this.towers[index];
-    this.gold += Math.floor(towerTotalCost(tower.type, tower.level) * 0.7);
+    const refund = this.sellValue(tower);
+    this.gold += refund;
     this.towers.splice(index, 1);
+    this.message = `已拆除 ${TOWERS[tower.type].name}，返还 ${refund} 金币。`;
     this.recomputePaths();
     return true;
   }
@@ -284,6 +286,10 @@ export class GameState {
     if (this.lastWaveForced) cost *= 1.25;
     if (this.buffs.repairDiscountWaves > 0) cost *= 0.75;
     return Math.ceil(cost);
+  }
+
+  sellValue(tower: TowerEntity) {
+    return Math.floor(towerTotalCost(tower.type, tower.level) * 0.7);
   }
 
   private canPlaceAt(x: number, y: number) {
