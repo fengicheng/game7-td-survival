@@ -124,7 +124,7 @@ function buildGrid() {
 function onCellClick(x: number, y: number) {
   const cell = game.cellStatus(x, y);
   if (cell.tower) {
-    selectedTowerId = cell.tower.id;
+    selectedTowerId = selectedTowerId === cell.tower.id ? null : cell.tower.id;
     renderDynamic();
     return;
   }
