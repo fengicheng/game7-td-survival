@@ -309,7 +309,7 @@ export class GameState {
   }
 
   sellValue(tower: TowerEntity) {
-    return Math.floor(towerTotalCost(tower.type, tower.level) * 0.7);
+    return Math.floor(towerTotalCost(tower.type, tower.level) * 0.9);
   }
 
   private canPlaceAt(x: number, y: number) {
