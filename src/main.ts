@@ -223,11 +223,14 @@ function renderBoard() {
 
   board.querySelectorAll(".enemy").forEach((node) => node.remove());
   board.querySelectorAll(".range-ring").forEach((node) => node.remove());
+  board.querySelectorAll(".range-center").forEach((node) => node.remove());
+  board.querySelectorAll(".range-label").forEach((node) => node.remove());
 
   const selectedTower = selectedTowerId ? game.towers.find((entry) => entry.id === selectedTowerId) : undefined;
   if (selectedTower) {
     const stats = getTowerStats(selectedTower.type, selectedTower.level);
     const displayRange = selectedTowerDisplayRange(selectedTower);
+    const accent = TOWERS[selectedTower.type].color;
     const rangeRing = document.createElement("div");
     const radius = displayRange * CELL_SIZE;
     rangeRing.className = `range-ring ${stats.range <= 0 && stats.auraRange ? "support-ring" : ""}`.trim();
@@ -235,8 +238,27 @@ function renderBoard() {
     rangeRing.style.height = `${radius * 2}px`;
     rangeRing.style.left = `${selectedTower.x * CELL_SIZE + CELL_SIZE / 2 - radius}px`;
     rangeRing.style.top = `${selectedTower.y * CELL_SIZE + CELL_SIZE / 2 - radius}px`;
-    rangeRing.style.setProperty("--accent", TOWERS[selectedTower.type].color);
+    rangeRing.style.borderColor = hexToRgba(accent, 0.95);
+    rangeRing.style.background = `radial-gradient(circle, ${hexToRgba(accent, 0.18)} 0%, ${hexToRgba(accent, 0.08)} 46%, transparent 72%)`;
+    rangeRing.style.boxShadow = `inset 0 0 28px ${hexToRgba(accent, 0.26)}, 0 0 18px ${hexToRgba(accent, 0.28)}`;
     board.appendChild(rangeRing);
+
+    const center = document.createElement("div");
+    center.className = "range-center";
+    center.style.left = `${selectedTower.x * CELL_SIZE + CELL_SIZE / 2}px`;
+    center.style.top = `${selectedTower.y * CELL_SIZE + CELL_SIZE / 2}px`;
+    center.style.background = accent;
+    center.style.boxShadow = `0 0 0 3px ${hexToRgba(accent, 0.32)}, 0 0 16px ${hexToRgba(accent, 0.45)}`;
+    board.appendChild(center);
+
+    const label = document.createElement("div");
+    label.className = "range-label";
+    label.style.left = `${selectedTower.x * CELL_SIZE + CELL_SIZE / 2}px`;
+    label.style.top = `${Math.max(8, selectedTower.y * CELL_SIZE - 10)}px`;
+    label.style.borderColor = hexToRgba(accent, 0.55);
+    label.style.background = hexToRgba("#0f1820", 0.92);
+    label.textContent = towerRangeLabel(selectedTower);
+    board.appendChild(label);
   }
 
   game.enemies.forEach((enemy) => {
@@ -489,4 +511,18 @@ function towerRangeLabel(tower: { type: TowerType; level: 1 | 2 | 3 }) {
   if (stats.range > 0) return `攻击范围：${stats.range.toFixed(1)} 格`;
   if (stats.auraRange && stats.auraRange > 0) return `支援范围：${stats.auraRange.toFixed(1)} 格`;
   return "作用范围：本格";
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const normalized = hex.replace("#", "");
+  const safe = normalized.length === 3
+    ? normalized
+        .split("")
+        .map((char) => char + char)
+        .join("")
+    : normalized.padEnd(6, "0").slice(0, 6);
+  const r = Number.parseInt(safe.slice(0, 2), 16);
+  const g = Number.parseInt(safe.slice(2, 4), 16);
+  const b = Number.parseInt(safe.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
