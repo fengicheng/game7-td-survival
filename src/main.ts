@@ -159,6 +159,10 @@ function renderStats() {
 }
 
 function renderBoard() {
+  const selectedTower = selectedTowerId ? game.towers.find((entry) => entry.id === selectedTowerId) : undefined;
+  const selectedTowerStats = selectedTower ? getTowerStats(selectedTower.type, selectedTower.level) : undefined;
+  const selectedTowerRange = selectedTower ? selectedTowerDisplayRange(selectedTower) : 0;
+
   const cells = board.querySelectorAll<HTMLButtonElement>(".cell");
   cells.forEach((cell) => {
     const x = Number(cell.dataset.x);
@@ -183,6 +187,15 @@ function renderBoard() {
     if (status.isKeyBlocker) cell.classList.add("key-blocker");
     if (hoveredCell && hoveredCell.x === x && hoveredCell.y === y) cell.classList.add("hover");
     if (status.tower && status.tower.id === selectedTowerId) cell.classList.add("selected-tower");
+    if (
+      selectedTower &&
+      isCellWithinRange(selectedTower.x, selectedTower.y, x, y, selectedTowerRange)
+    ) {
+      cell.classList.add("range-covered");
+      if ((selectedTowerStats?.range ?? 0) <= 0 && (selectedTowerStats?.auraRange ?? 0) > 0) {
+        cell.classList.add("support-covered");
+      }
+    }
 
     if (status.tower) {
       const tower = status.tower;
@@ -226,9 +239,8 @@ function renderBoard() {
   board.querySelectorAll(".range-center").forEach((node) => node.remove());
   board.querySelectorAll(".range-label").forEach((node) => node.remove());
 
-  const selectedTower = selectedTowerId ? game.towers.find((entry) => entry.id === selectedTowerId) : undefined;
   if (selectedTower) {
-    const stats = getTowerStats(selectedTower.type, selectedTower.level);
+    const stats = selectedTowerStats ?? getTowerStats(selectedTower.type, selectedTower.level);
     const displayRange = selectedTowerDisplayRange(selectedTower);
     const accent = TOWERS[selectedTower.type].color;
     const rangeRing = document.createElement("div");
@@ -511,6 +523,12 @@ function towerRangeLabel(tower: { type: TowerType; level: 1 | 2 | 3 }) {
   if (stats.range > 0) return `攻击范围：${stats.range.toFixed(1)} 格`;
   if (stats.auraRange && stats.auraRange > 0) return `支援范围：${stats.auraRange.toFixed(1)} 格`;
   return "作用范围：本格";
+}
+
+function isCellWithinRange(originX: number, originY: number, cellX: number, cellY: number, range: number) {
+  const dx = cellX - originX;
+  const dy = cellY - originY;
+  return Math.hypot(dx, dy) <= range + 0.1;
 }
 
 function hexToRgba(hex: string, alpha: number) {
