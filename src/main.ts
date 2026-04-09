@@ -93,6 +93,9 @@ let previousInventoryKey = "";
 let previousShopKey = "";
 let previousSelectedTower = game.selectedTower;
 let previousSelectedItem = game.selectedItem;
+let previousBoardKey = "";
+let previousStatsKey = "";
+let previousSelectedInfoKey = "";
 
 function buildGrid() {
   board.innerHTML = "";
@@ -138,6 +141,24 @@ function onCellClick(x: number, y: number) {
 }
 
 function renderStats() {
+  const overload = game.enemies.length > 150 ? `${Math.ceil(10 - game.overloadCounter)} 秒后崩溃` : "稳定";
+  const statsKey = [
+    game.wave,
+    game.gold,
+    game.coreHp,
+    game.enemies.length,
+    game.pathBundle.phase,
+    game.message,
+    game.phase,
+    game.breakthroughPlan.summary,
+    overload,
+    game.stats.forcedCount,
+    game.stats.kills,
+  ].join("|");
+
+  if (statsKey === previousStatsKey) return;
+  previousStatsKey = statsKey;
+
   statsEl.innerHTML = `
     <div><strong>波次</strong><span>${game.wave}</span></div>
     <div><strong>金币</strong><span>${game.gold}</span></div>
@@ -146,7 +167,6 @@ function renderStats() {
     <div><strong>路径</strong><span>${game.pathBundle.phase === "forced" ? "强制突破" : "正常寻路"}</span></div>
   `;
 
-  const overload = game.enemies.length > 150 ? `${Math.ceil(10 - game.overloadCounter)} 秒后崩溃` : "稳定";
   statusEl.innerHTML = `
     <p class="message">${game.message}</p>
     <p>阶段：<strong>${labelPhase(game.phase)}</strong></p>
@@ -159,6 +179,27 @@ function renderStats() {
 }
 
 function renderBoard() {
+  const boardKey = [
+    hoveredCell ? `${hoveredCell.x},${hoveredCell.y}` : "-",
+    selectedTowerId ?? "-",
+    game.phase,
+    game.pathBundle.phase,
+    [...game.pathBundle.keyBlockers].sort().join(";"),
+    game.pathBundle.breachPath.map((point) => `${point.x},${point.y}`).join(";"),
+    [...game.pathBundle.normalPaths.entries()]
+      .map(([spawnId, path]) => `${spawnId}:${path.map((point) => `${point.x},${point.y}`).join(".")}`)
+      .join("|"),
+    [...game.pathBundle.forcedPaths.entries()]
+      .map(([spawnId, path]) => `${spawnId}:${path.map((point) => `${point.x},${point.y}`).join(".")}`)
+      .join("|"),
+    game.towers.map((tower) => `${tower.id}:${tower.type}:${tower.level}:${tower.x},${tower.y}:${tower.hp}`).join("|"),
+    game.items.map((item) => `${item.id}:${item.type}:${item.x},${item.y}:${item.hp ?? "-"}:${item.triggered ? 1 : 0}`).join("|"),
+    game.fragileWalls.map((wall) => `${wall.id}:${wall.x},${wall.y}:${wall.hp}`).join("|"),
+  ].join("~");
+
+  if (boardKey === previousBoardKey) return;
+  previousBoardKey = boardKey;
+
   const selectedTower = selectedTowerId ? game.towers.find((entry) => entry.id === selectedTowerId) : undefined;
   const selectedTowerStats = selectedTower ? getTowerStats(selectedTower.type, selectedTower.level) : undefined;
   const selectedTowerRange = selectedTower ? selectedTowerDisplayRange(selectedTower) : 0;
@@ -234,7 +275,6 @@ function renderBoard() {
     }
   });
 
-  board.querySelectorAll(".enemy").forEach((node) => node.remove());
   board.querySelectorAll(".range-ring").forEach((node) => node.remove());
   board.querySelectorAll(".range-center").forEach((node) => node.remove());
   board.querySelectorAll(".range-label").forEach((node) => node.remove());
@@ -273,6 +313,10 @@ function renderBoard() {
     board.appendChild(label);
   }
 
+}
+
+function renderEnemies() {
+  board.querySelectorAll(".enemy").forEach((node) => node.remove());
   game.enemies.forEach((enemy) => {
     const node = document.createElement("div");
     node.className = "enemy";
@@ -368,13 +412,21 @@ function renderShop() {
 }
 
 function renderSelected() {
+  const tower = selectedTowerId ? game.towers.find((entry) => entry.id === selectedTowerId) : undefined;
+  const selectedInfoKey = tower
+    ? [tower.id, tower.type, tower.level, tower.hp, game.phase, game.repairCost(tower), game.sellValue(tower)].join("|")
+    : "empty";
+
+  if (selectedInfoKey === previousSelectedInfoKey) return;
+  previousSelectedInfoKey = selectedInfoKey;
+
   if (!selectedTowerId) {
     selectedInfoEl.innerHTML = `<p class="muted">点击地图中的防御塔查看升级、出售和维修成本。</p>`;
     return;
   }
-  const tower = game.towers.find((entry) => entry.id === selectedTowerId);
   if (!tower) {
     selectedTowerId = null;
+    previousSelectedInfoKey = "empty";
     selectedInfoEl.innerHTML = `<p class="muted">点击地图中的防御塔查看升级、出售和维修成本。</p>`;
     return;
   }
@@ -407,6 +459,7 @@ function renderSelected() {
 function renderDynamic() {
   renderStats();
   renderBoard();
+  renderEnemies();
   renderSelected();
   startWaveBtn.hidden = game.phase === "battle" || game.phase === "shop" || game.phase === "defeat";
   repairBtn.hidden = game.phase !== "prep";
