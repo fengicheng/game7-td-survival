@@ -23,3 +23,6 @@ npm run preview
 
 ## 在线游玩
 发布到 GitHub Pages 后，可通过仓库 Pages 地址直接进入游玩。
+
+- GitHub Pages: `https://fengicheng.github.io/game7-td-survival/`
+- CDN 备用地址: `https://cdn.jsdelivr.net/gh/fengicheng/game7-td-survival@main/docs/index.html`
