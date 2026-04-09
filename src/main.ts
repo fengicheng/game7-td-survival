@@ -227,9 +227,10 @@ function renderBoard() {
   const selectedTower = selectedTowerId ? game.towers.find((entry) => entry.id === selectedTowerId) : undefined;
   if (selectedTower) {
     const stats = getTowerStats(selectedTower.type, selectedTower.level);
+    const displayRange = selectedTowerDisplayRange(selectedTower);
     const rangeRing = document.createElement("div");
-    const radius = stats.range * CELL_SIZE;
-    rangeRing.className = "range-ring";
+    const radius = displayRange * CELL_SIZE;
+    rangeRing.className = `range-ring ${stats.range <= 0 && stats.auraRange ? "support-ring" : ""}`.trim();
     rangeRing.style.width = `${radius * 2}px`;
     rangeRing.style.height = `${radius * 2}px`;
     rangeRing.style.left = `${selectedTower.x * CELL_SIZE + CELL_SIZE / 2 - radius}px`;
@@ -349,7 +350,7 @@ function renderSelected() {
     <div class="selected-card">
       <h3>${TOWERS[tower.type].name} Lv${tower.level}</h3>
       <p>生命：${tower.hp} / ${maxHp}</p>
-      <p>攻击范围：${getTowerStats(tower.type, tower.level).range.toFixed(1)} 格</p>
+      <p>${towerRangeLabel(tower)}</p>
       <p>维修：${game.repairCost(tower)} 金币</p>
       <p>拆除返还：${sellValue} 金币</p>
       <div class="selected-actions">
@@ -474,4 +475,18 @@ function shopKey() {
     .map((offer) => `${offer.id}:${offer.type}:${offer.price}`)
     .sort()
     .join("|");
+}
+
+function selectedTowerDisplayRange(tower: { type: TowerType; level: 1 | 2 | 3 }) {
+  const stats = getTowerStats(tower.type, tower.level);
+  if (stats.range > 0) return stats.range;
+  if (stats.auraRange && stats.auraRange > 0) return stats.auraRange;
+  return 0.7;
+}
+
+function towerRangeLabel(tower: { type: TowerType; level: 1 | 2 | 3 }) {
+  const stats = getTowerStats(tower.type, tower.level);
+  if (stats.range > 0) return `攻击范围：${stats.range.toFixed(1)} 格`;
+  if (stats.auraRange && stats.auraRange > 0) return `支援范围：${stats.auraRange.toFixed(1)} 格`;
+  return "作用范围：本格";
 }
