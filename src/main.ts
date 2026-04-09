@@ -10,6 +10,7 @@ if (!app) {
 }
 
 const game = new GameState();
+let introVisible = true;
 
 app.innerHTML = `
   <div class="shell">
@@ -45,6 +46,29 @@ app.innerHTML = `
       <div class="bar-title">防御塔下边栏</div>
       <div id="tower-bar" class="tower-bar"></div>
     </footer>
+    <section class="intro-screen" id="intro-screen">
+      <div class="intro-card panel">
+        <p class="intro-kicker">单地图 · 无限波次 · 动态堵路塔防</p>
+        <h1>多出发点堵路塔防</h1>
+        <p class="intro-copy">
+          每一座防御塔都会改变地形。你需要一边建设火力，一边通过堵路重塑敌人的最短路径，在不断升级的波次中尽量存活更久。
+        </p>
+        <div class="intro-rules">
+          <h2>核心规则</h2>
+          <ul>
+            <li>敌人从多个出发点出发，分别计算到终点的最短路径。</li>
+            <li>所有防御塔都会堵路，放置后会立刻改变敌人寻路。</li>
+            <li>如果你堵死了所有正常路线，敌人会集中拆出一条强制通路。</li>
+            <li>战斗中不能再建塔，但可以放置地图道具进行临场救火。</li>
+            <li>每波结束可进入商店，购买永久道具、战斗道具或临时强化。</li>
+            <li>核心生命归零，或场上敌人数失控达到崩溃上限时失败。</li>
+          </ul>
+        </div>
+        <div class="intro-actions">
+          <button id="enter-game" class="primary intro-start">开始游戏</button>
+        </div>
+      </div>
+    </section>
   </div>
 `;
 
@@ -59,6 +83,8 @@ const shopPanelEl = document.querySelector<HTMLElement>("#shop-panel")!;
 const startWaveBtn = document.querySelector<HTMLButtonElement>("#start-wave")!;
 const repairBtn = document.querySelector<HTMLButtonElement>("#repair-all")!;
 const shopCloseBtn = document.querySelector<HTMLButtonElement>("#shop-close")!;
+const introEl = document.querySelector<HTMLElement>("#intro-screen")!;
+const enterGameBtn = document.querySelector<HTMLButtonElement>("#enter-game")!;
 
 let hoveredCell: { x: number; y: number } | null = null;
 let selectedTowerId: number | null = null;
@@ -336,6 +362,7 @@ function renderDynamic() {
   repairBtn.hidden = game.phase !== "prep";
   shopCloseBtn.hidden = game.phase !== "shop";
   shopPanelEl.hidden = game.phase !== "shop";
+  introEl.hidden = !introVisible;
 }
 
 function renderStaticPanels() {
@@ -397,6 +424,11 @@ repairBtn.addEventListener("click", () => {
 shopCloseBtn.addEventListener("click", () => {
   game.closeShop();
   renderFull();
+});
+
+enterGameBtn.addEventListener("click", () => {
+  introVisible = false;
+  renderDynamic();
 });
 
 buildGrid();

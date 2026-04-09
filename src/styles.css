@@ -42,6 +42,7 @@ button:disabled {
   min-height: 100vh;
   gap: 12px;
   padding: 14px;
+  position: relative;
 }
 
 .panel {
@@ -339,6 +340,84 @@ button:disabled {
 .right-panel {
   display: grid;
   gap: 12px;
+}
+
+.intro-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    linear-gradient(180deg, rgba(8, 15, 18, 0.82), rgba(8, 15, 18, 0.92)),
+    radial-gradient(circle at 20% 20%, rgba(105, 202, 184, 0.16), transparent 28%),
+    radial-gradient(circle at 80% 15%, rgba(255, 124, 86, 0.16), transparent 22%);
+}
+
+.intro-card {
+  width: min(860px, 100%);
+  padding: 28px;
+  border-radius: 24px;
+  display: grid;
+  gap: 18px;
+  background:
+    linear-gradient(180deg, rgba(32, 48, 57, 0.96), rgba(17, 25, 31, 0.96)),
+    linear-gradient(135deg, rgba(244, 182, 86, 0.08), transparent 35%);
+}
+
+.intro-kicker {
+  margin: 0;
+  color: #8adcc8;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.intro-card h1 {
+  margin: 0;
+  font-size: clamp(34px, 5vw, 56px);
+  line-height: 1.05;
+}
+
+.intro-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 16px;
+  max-width: 720px;
+}
+
+.intro-rules {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.intro-rules h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.intro-rules ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.intro-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.intro-start {
+  min-width: 180px;
+  min-height: 52px;
+  font-size: 18px;
 }
 
 @media (max-width: 1320px) {
