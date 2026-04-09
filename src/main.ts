@@ -62,6 +62,11 @@ const shopCloseBtn = document.querySelector<HTMLButtonElement>("#shop-close")!;
 
 let hoveredCell: { x: number; y: number } | null = null;
 let selectedTowerId: number | null = null;
+let previousPhase = game.phase;
+let previousInventoryKey = "";
+let previousShopKey = "";
+let previousSelectedTower = game.selectedTower;
+let previousSelectedItem = game.selectedItem;
 
 function buildGrid() {
   board.innerHTML = "";
@@ -75,11 +80,11 @@ function buildGrid() {
       cell.dataset.y = String(y);
       cell.addEventListener("mouseenter", () => {
         hoveredCell = { x, y };
-        render();
+        renderDynamic();
       });
       cell.addEventListener("mouseleave", () => {
         hoveredCell = null;
-        render();
+        renderDynamic();
       });
       cell.addEventListener("click", () => onCellClick(x, y));
       board.appendChild(cell);
@@ -91,17 +96,17 @@ function onCellClick(x: number, y: number) {
   const cell = game.cellStatus(x, y);
   if (cell.tower) {
     selectedTowerId = cell.tower.id;
-    render();
+    renderDynamic();
     return;
   }
   if (game.selectedItem) {
     game.placeInventoryItem(game.selectedItem, x, y);
-    render();
+    renderFull();
     return;
   }
   if (game.selectedTower) {
     game.placeTower(game.selectedTower, x, y);
-    render();
+    renderFull();
   }
 }
 
@@ -204,7 +209,7 @@ function renderTowerBar() {
     btn.addEventListener("click", () => {
       game.selectedTower = type;
       game.selectedItem = null;
-      render();
+      renderFull();
     });
     towerBarEl.appendChild(btn);
   });
@@ -233,7 +238,7 @@ function renderInventory() {
     btn.addEventListener("click", () => {
       game.selectedItem = entry.type;
       game.selectedTower = null;
-      render();
+      renderFull();
     });
     inventoryEl.appendChild(btn);
   });
@@ -256,7 +261,7 @@ function renderShop() {
     `;
     btn.addEventListener("click", () => {
       game.buyOffer(offer.id);
-      render();
+      renderFull();
     });
     shopEl.appendChild(btn);
   });
@@ -265,7 +270,7 @@ function renderShop() {
   reroll.textContent = "刷新商店";
   reroll.addEventListener("click", () => {
     game.rerollShop();
-    render();
+    renderFull();
   });
   shopEl.appendChild(reroll);
 }
@@ -295,26 +300,62 @@ function renderSelected() {
   `;
   document.querySelector<HTMLButtonElement>("#upgrade-selected")?.addEventListener("click", () => {
     game.upgradeTower(tower.id);
-    render();
+    renderFull();
   });
   document.querySelector<HTMLButtonElement>("#sell-selected")?.addEventListener("click", () => {
     game.sellTower(tower.id);
     selectedTowerId = null;
-    render();
+    renderFull();
   });
 }
 
-function render() {
+function renderDynamic() {
   renderStats();
   renderBoard();
-  renderTowerBar();
-  renderInventory();
-  renderShop();
   renderSelected();
   startWaveBtn.hidden = game.phase === "battle" || game.phase === "shop" || game.phase === "defeat";
   repairBtn.hidden = game.phase !== "prep";
   shopCloseBtn.hidden = game.phase !== "shop";
   shopPanelEl.hidden = game.phase !== "shop";
+}
+
+function renderStaticPanels() {
+  renderTowerBar();
+  renderInventory();
+  renderShop();
+}
+
+function renderFull() {
+  renderDynamic();
+  renderStaticPanels();
+  previousPhase = game.phase;
+  previousInventoryKey = inventoryKey();
+  previousShopKey = shopKey();
+  previousSelectedTower = game.selectedTower;
+  previousSelectedItem = game.selectedItem;
+}
+
+function refreshStaticIfNeeded() {
+  const currentInventoryKey = inventoryKey();
+  const currentShopKey = shopKey();
+  const towerSelectionChanged = previousSelectedTower !== game.selectedTower;
+  const itemSelectionChanged = previousSelectedItem !== game.selectedItem;
+  const phaseChanged = previousPhase !== game.phase;
+
+  if (
+    phaseChanged ||
+    towerSelectionChanged ||
+    itemSelectionChanged ||
+    previousInventoryKey !== currentInventoryKey ||
+    previousShopKey !== currentShopKey
+  ) {
+    renderStaticPanels();
+    previousPhase = game.phase;
+    previousInventoryKey = currentInventoryKey;
+    previousShopKey = currentShopKey;
+    previousSelectedTower = game.selectedTower;
+    previousSelectedItem = game.selectedItem;
+  }
 }
 
 function labelPhase(phase: string) {
@@ -326,29 +367,44 @@ function labelPhase(phase: string) {
 
 startWaveBtn.addEventListener("click", () => {
   game.startWave();
-  render();
+  renderFull();
 });
 
 repairBtn.addEventListener("click", () => {
   game.repairAll();
-  render();
+  renderFull();
 });
 
 shopCloseBtn.addEventListener("click", () => {
   game.closeShop();
-  render();
+  renderFull();
 });
 
 buildGrid();
-render();
+renderFull();
 
 let last = performance.now();
 function loop(now: number) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   game.update(dt);
-  render();
+  renderDynamic();
+  refreshStaticIfNeeded();
   requestAnimationFrame(loop);
 }
 
 requestAnimationFrame(loop);
+
+function inventoryKey() {
+  return game.inventory
+    .map((entry) => `${entry.type}:${entry.quantity}`)
+    .sort()
+    .join("|");
+}
+
+function shopKey() {
+  return game.shopOffers
+    .map((offer) => `${offer.id}:${offer.type}:${offer.price}`)
+    .sort()
+    .join("|");
+}
