@@ -340,6 +340,23 @@ button:disabled {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.wave-preview {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid #8adcc8;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.wave-preview ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
 .muted {
   color: var(--muted);
   line-height: 1.6;

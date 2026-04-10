@@ -153,6 +153,11 @@ function onCellClick(x: number, y: number) {
 
 function renderStats() {
   const overload = game.enemies.length > 150 ? `${Math.ceil(10 - game.overloadCounter)} 秒后崩溃` : "稳定";
+  const wavePreview = game.nextWavePreview();
+  const wavePreviewKey = wavePreview.entries.map((entry) => `${entry.type}:${entry.count}`).join(",");
+  const wavePreviewList = wavePreview.entries
+    .map((entry) => `<li>${ENEMIES[entry.type].name}：${entry.count}</li>`)
+    .join("");
   const statsKey = [
     game.wave,
     game.gold,
@@ -165,6 +170,9 @@ function renderStats() {
     overload,
     game.stats.forcedCount,
     game.stats.kills,
+    wavePreview.wave,
+    wavePreview.total,
+    wavePreviewKey,
   ].join("|");
 
   if (statsKey === previousStatsKey) return;
@@ -186,6 +194,10 @@ function renderStats() {
     <p>过载状态：${overload}</p>
     <p>强制通路触发：${game.stats.forcedCount} 次</p>
     <p>击杀总数：${game.stats.kills}</p>
+    <div class="wave-preview">
+      <strong>下一波预览：第 ${wavePreview.wave} 波，共 ${wavePreview.total} 个敌人</strong>
+      <ul>${wavePreviewList}</ul>
+    </div>
   `;
 }
 

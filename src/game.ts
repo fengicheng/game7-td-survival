@@ -34,6 +34,7 @@ import type {
   TowerEntity,
   TowerStats,
   TowerType,
+  WaveSpawn,
 } from "./types";
 
 interface TemporaryBuffs {
@@ -68,6 +69,7 @@ export class GameState {
   battleTime = 0;
   spawnCursor = 0;
   wavePlan = generateWave(1);
+  nextWavePlan = generateWave(2);
   nextEntityId = 1;
   overloadCounter = 0;
   lastWaveForced = false;
@@ -230,7 +232,6 @@ export class GameState {
   startWave() {
     if (this.phase !== "prep") return false;
     this.phase = "battle";
-    this.wavePlan = generateWave(this.wave);
     this.spawnCursor = 0;
     this.battleTime = 0;
     this.waveLeaked = false;
@@ -284,8 +285,16 @@ export class GameState {
     this.applyWaveEndEffects();
     this.phase = "prep";
     this.wave += 1;
+    this.wavePlan = this.nextWavePlan;
+    this.nextWavePlan = generateWave(this.wave + 1);
     this.message = "进入准备阶段，可继续布防。";
     return true;
+  }
+
+  nextWavePreview() {
+    const previewWave = this.phase === "prep" ? this.wave : this.wave + 1;
+    const plan = this.phase === "prep" ? this.wavePlan : this.nextWavePlan;
+    return summarizeWave(previewWave, plan);
   }
 
   cellStatus(x: number, y: number) {
@@ -504,6 +513,7 @@ export class GameState {
     }
     this.expireWaveBuffs();
     this.phase = "shop";
+    this.nextWavePlan = generateWave(this.wave + 1);
     this.refreshShop();
     this.message = "本波结束，进入商店。";
   }
@@ -799,6 +809,15 @@ function towerTotalCost(type: TowerType, level: 1 | 2 | 3) {
   let total = 0;
   for (let current = 1; current <= level; current += 1) total += getTowerStats(type, current as 1 | 2 | 3).cost;
   return total;
+}
+
+function summarizeWave(wave: number, plan: WaveSpawn[]) {
+  const counts = new Map<EnemyType, number>();
+  plan.forEach((spawn) => counts.set(spawn.type, (counts.get(spawn.type) ?? 0) + 1));
+  const entries = (Object.keys(ENEMIES) as EnemyType[])
+    .filter((type) => counts.has(type))
+    .map((type) => ({ type, count: counts.get(type) ?? 0 }));
+  return { wave, total: plan.length, entries };
 }
 
 function distance(a: Point, b: Point) {
