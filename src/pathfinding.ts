@@ -288,6 +288,42 @@ function pickBestDisplayPath(results: SearchResult[]) {
   return valid[0]?.path ?? [];
 }
 
+function buildOccupancy(
+  towers: TowerEntity[],
+  items: ItemEntity[],
+  fragileWalls: FragileWallEntity[],
+  walls: Set<string>,
+  danger: Set<string>,
+): Occupancy {
+  return {
+    towers: new Map(towers.map((tower) => [toKey(tower.x, tower.y), tower])),
+    items: new Map(items.map((item) => [toKey(item.x, item.y), item])),
+    fragileWalls: new Map(fragileWalls.map((wall) => [toKey(wall.x, wall.y), wall])),
+    walls,
+    danger,
+  };
+}
+
+export function computeEnemyPathFromPoint(
+  start: Point,
+  enemyType: EnemyType,
+  phase: PathBundle["phase"],
+  towers: TowerEntity[],
+  items: ItemEntity[],
+  fragileWalls: FragileWallEntity[],
+  walls: Set<string>,
+  danger: Set<string>,
+) {
+  const occupancy = buildOccupancy(towers, items, fragileWalls, walls, danger);
+  const influence = buildInfluenceMaps(occupancy);
+  const normal = searchPath(start, enemyType, occupancy, influence, false);
+  const forced = searchPath(start, enemyType, occupancy, influence, true);
+
+  if (phase === "forced") return forced.path.length ? forced.path : normal.path;
+  if (forced.path.length && forced.cost + 0.25 < normal.cost) return forced.path;
+  return normal.path.length ? normal.path : forced.path;
+}
+
 export function computePathBundle(
   towers: TowerEntity[],
   items: ItemEntity[],
@@ -295,13 +331,7 @@ export function computePathBundle(
   walls: Set<string>,
   danger: Set<string>,
 ): PathBundle {
-  const occupancy: Occupancy = {
-    towers: new Map(towers.map((tower) => [toKey(tower.x, tower.y), tower])),
-    items: new Map(items.map((item) => [toKey(item.x, item.y), item])),
-    fragileWalls: new Map(fragileWalls.map((wall) => [toKey(wall.x, wall.y), wall])),
-    walls,
-    danger,
-  };
+  const occupancy = buildOccupancy(towers, items, fragileWalls, walls, danger);
   const influence = buildInfluenceMaps(occupancy);
   const enemyTypes = Object.keys(ENEMIES) as EnemyType[];
 

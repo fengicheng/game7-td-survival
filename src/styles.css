@@ -293,6 +293,33 @@ button:disabled {
   z-index: 3;
 }
 
+.enemy-label {
+  position: relative;
+  z-index: 1;
+}
+
+.enemy-hp {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 28px;
+  height: 4px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(10, 14, 16, 0.72);
+  overflow: hidden;
+}
+
+.enemy-hp i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ff6e61, #f5dc6a, #72edb0);
+}
+
+.boss-enemy .enemy-hp {
+  width: 36px;
+}
+
 .range-ring {
   position: absolute;
   border-radius: 50%;

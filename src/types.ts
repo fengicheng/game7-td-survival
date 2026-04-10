@@ -124,6 +124,7 @@ export interface EnemyEntity {
   type: EnemyType;
   spawnId: number;
   hp: number;
+  maxHp: number;
   x: number;
   y: number;
   cellX: number;
@@ -134,6 +135,7 @@ export interface EnemyEntity {
   cooldownLeft: number;
   route: Point[];
   routeIndex: number;
+  routeSignature: string;
   targetTowerId?: number;
 }
 

@@ -19,7 +19,7 @@ import {
   getTowerStats,
   rollShopOffers,
 } from "./data";
-import { computePathBundle, toKey } from "./pathfinding";
+import { computeEnemyPathFromPoint, computePathBundle, toKey } from "./pathfinding";
 import type {
   EnemyEntity,
   EnemyType,
@@ -358,11 +358,14 @@ export class GameState {
       const config = ENEMIES[plan.type];
       const multiplier = getEnemyMultiplier(this.wave);
       const spawn = SPAWNS[plan.spawnId];
+      const route = this.currentPathForSpawn(plan.spawnId, plan.type);
+      const maxHp = Math.round(config.hp * multiplier.hp);
       this.enemies.push({
         id: this.nextEntityId += 1,
         type: plan.type,
         spawnId: plan.spawnId,
-        hp: Math.round(config.hp * multiplier.hp),
+        hp: maxHp,
+        maxHp,
         x: spawn.x,
         y: spawn.y,
         cellX: spawn.x,
@@ -371,8 +374,9 @@ export class GameState {
         speedMultiplier: this.lastWaveForced ? 1.1 : 1,
         slowUntil: 0,
         cooldownLeft: 0,
-        route: this.currentPathForSpawn(plan.spawnId, plan.type),
+        route,
         routeIndex: 0,
+        routeSignature: pathSignature(route),
       });
     }
   }
@@ -384,7 +388,7 @@ export class GameState {
     this.enemies.forEach((enemy) => {
       const config = ENEMIES[enemy.type];
       enemy.cooldownLeft = Math.max(0, enemy.cooldownLeft - dt);
-      enemy.route = this.currentPathForSpawn(enemy.spawnId, enemy.type);
+      this.syncEnemyRoute(enemy);
 
       const wallTarget = this.activeBreakWallTarget(enemy);
       if (wallTarget) {
@@ -551,6 +555,29 @@ export class GameState {
     }
 
     return normalPath.length ? normalPath : forcedPath;
+  }
+
+  private syncEnemyRoute(enemy: EnemyEntity) {
+    const baseRoute = this.currentPathForSpawn(enemy.spawnId, enemy.type);
+    const nextSignature = pathSignature(baseRoute);
+    if (nextSignature === enemy.routeSignature) return;
+    const current = { x: enemy.cellX, y: enemy.cellY };
+    const oldUpcoming = enemy.route[enemy.routeIndex + 1];
+    const routeFromCurrent = computeEnemyPathFromPoint(
+      current,
+      enemy.type,
+      this.pathBundle.phase,
+      this.towers,
+      this.items,
+      this.fragileWalls,
+      TERRAIN_WALLS,
+      DANGER_TILES,
+    );
+    enemy.route = anchorRouteAtEnemy(enemy, routeFromCurrent);
+    enemy.routeIndex = 0;
+    const nextUpcoming = enemy.route[1];
+    enemy.progress = oldUpcoming && nextUpcoming && oldUpcoming.x === nextUpcoming.x && oldUpcoming.y === nextUpcoming.y ? enemy.progress : 0;
+    enemy.routeSignature = nextSignature;
   }
 
   private findBlockingAt(x: number, y: number) {
@@ -818,6 +845,27 @@ function summarizeWave(wave: number, plan: WaveSpawn[]) {
     .filter((type) => counts.has(type))
     .map((type) => ({ type, count: counts.get(type) ?? 0 }));
   return { wave, total: plan.length, entries };
+}
+
+function anchorRouteAtEnemy(enemy: EnemyEntity, route: Point[]) {
+  const current = { x: enemy.cellX, y: enemy.cellY };
+  if (!route.length) return [current];
+
+  const currentIndex = route.findIndex((point) => point.x === current.x && point.y === current.y);
+  if (currentIndex >= 0) return route.slice(currentIndex);
+
+  const nearestIndex = route.reduce((bestIndex, point, index) => {
+    const best = route[bestIndex];
+    const bestDistance = Math.abs(best.x - current.x) + Math.abs(best.y - current.y);
+    const distance = Math.abs(point.x - current.x) + Math.abs(point.y - current.y);
+    return distance < bestDistance ? index : bestIndex;
+  }, 0);
+
+  return [current, ...route.slice(nearestIndex)];
+}
+
+function pathSignature(path: Point[]) {
+  return path.map((point) => `${point.x},${point.y}`).join(";");
 }
 
 function distance(a: Point, b: Point) {

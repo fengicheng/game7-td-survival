@@ -342,11 +342,16 @@ function renderEnemies() {
   board.querySelectorAll(".enemy").forEach((node) => node.remove());
   game.enemies.forEach((enemy) => {
     const node = document.createElement("div");
-    node.className = "enemy";
+    const config = ENEMIES[enemy.type];
+    const hpPct = Math.max(0, Math.min(100, Math.round((enemy.hp / enemy.maxHp) * 100)));
+    node.className = `enemy ${config.boss ? "boss-enemy" : ""}`.trim();
     node.style.left = `${enemy.x * CELL_SIZE + CELL_SIZE / 2}px`;
     node.style.top = `${enemy.y * CELL_SIZE + CELL_SIZE / 2}px`;
-    node.style.background = ENEMIES[enemy.type].color;
-    node.textContent = ENEMIES[enemy.type].boss ? "首" : ENEMIES[enemy.type].name[0];
+    node.style.background = config.color;
+    node.innerHTML = `
+      <span class="enemy-label">${config.boss ? "首" : config.name[0]}</span>
+      <span class="enemy-hp"><i style="width:${hpPct}%"></i></span>
+    `;
     board.appendChild(node);
   });
 }
