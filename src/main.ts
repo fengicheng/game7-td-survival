@@ -20,6 +20,7 @@ app.innerHTML = `
         <button id="start-wave" class="primary">开始波次</button>
         <button id="repair-all">批量维修</button>
         <button id="shop-close" hidden>离开商店</button>
+        <button id="music-toggle" class="music-toggle">关闭音乐</button>
       </div>
     </header>
     <main class="main">
@@ -85,6 +86,15 @@ const repairBtn = document.querySelector<HTMLButtonElement>("#repair-all")!;
 const shopCloseBtn = document.querySelector<HTMLButtonElement>("#shop-close")!;
 const introEl = document.querySelector<HTMLElement>("#intro-screen")!;
 const enterGameBtn = document.querySelector<HTMLButtonElement>("#enter-game")!;
+const musicToggleBtn = document.querySelector<HTMLButtonElement>("#music-toggle")!;
+
+const musicTracks = ["../1.1.mp3", "../1.2.mp3", "../1.3.mp3", "../1.4.mp3"].map((track) => new URL(track, import.meta.url).href);
+const musicPlayer = new Audio();
+musicPlayer.volume = 0.45;
+let musicEnabled = true;
+let musicStarted = false;
+let musicTrackIndex = 0;
+let musicTimer: number | undefined;
 
 let hoveredCell: { x: number; y: number } | null = null;
 let selectedTowerId: number | null = null;
@@ -414,7 +424,7 @@ function renderShop() {
 function renderSelected() {
   const tower = selectedTowerId ? game.towers.find((entry) => entry.id === selectedTowerId) : undefined;
   const selectedInfoKey = tower
-    ? [tower.id, tower.type, tower.level, tower.hp, game.phase, game.repairCost(tower), game.sellValue(tower)].join("|")
+    ? [tower.id, tower.type, tower.level, tower.hp, game.phase, game.repairCost(tower), game.sellValue(tower), game.downgradeRefund(tower)].join("|")
     : "empty";
 
   if (selectedInfoKey === previousSelectedInfoKey) return;
@@ -432,21 +442,28 @@ function renderSelected() {
   }
   const maxHp = game.maxTowerHp(tower);
   const sellValue = game.sellValue(tower);
+  const downgradeRefund = game.downgradeRefund(tower);
   selectedInfoEl.innerHTML = `
     <div class="selected-card">
       <h3>${TOWERS[tower.type].name} Lv${tower.level}</h3>
       <p>生命：${tower.hp} / ${maxHp}</p>
       <p>${towerRangeLabel(tower)}</p>
       <p>维修：${game.repairCost(tower)} 金币</p>
+      <p>降级返还：${downgradeRefund} 金币</p>
       <p>拆除返还：${sellValue} 金币</p>
       <div class="selected-actions">
         <button id="upgrade-selected" class="action-upgrade" ${game.phase !== "prep" || tower.level >= 3 ? "disabled" : ""}>升级</button>
+        <button id="downgrade-selected" class="action-downgrade" ${game.phase !== "prep" || tower.level <= 1 ? "disabled" : ""}>等级下降</button>
         <button id="sell-selected" class="action-sell" ${game.phase !== "prep" ? "disabled" : ""}>拆除返还</button>
       </div>
     </div>
   `;
   document.querySelector<HTMLButtonElement>("#upgrade-selected")?.addEventListener("click", () => {
     game.upgradeTower(tower.id);
+    renderFull();
+  });
+  document.querySelector<HTMLButtonElement>("#downgrade-selected")?.addEventListener("click", () => {
+    game.downgradeTower(tower.id);
     renderFull();
   });
   document.querySelector<HTMLButtonElement>("#sell-selected")?.addEventListener("click", () => {
@@ -529,9 +546,21 @@ shopCloseBtn.addEventListener("click", () => {
   renderFull();
 });
 
+musicToggleBtn.addEventListener("click", () => {
+  musicEnabled = !musicEnabled;
+  musicToggleBtn.textContent = musicEnabled ? "关闭音乐" : "开启音乐";
+  musicToggleBtn.classList.toggle("muted-music", !musicEnabled);
+  if (musicEnabled) {
+    playMusicTrack(false);
+  } else {
+    stopMusic();
+  }
+});
+
 enterGameBtn.addEventListener("click", () => {
   introVisible = false;
   introEl.classList.add("is-hidden");
+  if (!musicStarted && musicEnabled) playMusicTrack(true);
   renderDynamic();
 });
 
@@ -597,3 +626,32 @@ function hexToRgba(hex: string, alpha: number) {
   const b = Number.parseInt(safe.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
+
+function playMusicTrack(resetTrack: boolean) {
+  if (!musicEnabled) return;
+  musicStarted = true;
+  window.clearTimeout(musicTimer);
+  if (resetTrack) musicTrackIndex = 0;
+  musicPlayer.src = musicTracks[musicTrackIndex];
+  musicPlayer.currentTime = 0;
+  musicPlayer.play().catch(() => {
+    stopMusic();
+    musicToggleBtn.textContent = "开启音乐";
+    musicEnabled = false;
+    musicToggleBtn.classList.add("muted-music");
+  });
+  musicTimer = window.setTimeout(nextMusicTrack, 30_000);
+}
+
+function nextMusicTrack() {
+  if (!musicEnabled) return;
+  musicTrackIndex = (musicTrackIndex + 1) % musicTracks.length;
+  playMusicTrack(false);
+}
+
+function stopMusic() {
+  window.clearTimeout(musicTimer);
+  musicPlayer.pause();
+}
+
+musicPlayer.addEventListener("ended", nextMusicTrack);

@@ -94,6 +94,21 @@ button:disabled {
   padding: 12px;
 }
 
+.music-toggle {
+  min-height: 38px;
+  padding: 0 14px;
+  background: linear-gradient(135deg, #6ee8c8, #9fdcff);
+  color: #102026;
+  font-weight: 800;
+  box-shadow: 0 8px 18px rgba(111, 219, 210, 0.18);
+}
+
+.music-toggle.muted-music {
+  background: linear-gradient(135deg, #536873, #2f4149);
+  color: rgba(233, 243, 241, 0.8);
+  box-shadow: none;
+}
+
 .primary {
   background: linear-gradient(135deg, #f09c43, #ffcf6a);
   color: #182127;
@@ -352,7 +367,7 @@ button:disabled {
 
 .selected-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
   margin-top: 6px;
 }
@@ -383,6 +398,12 @@ button:disabled {
   background: linear-gradient(135deg, #f3b34e, #ffd975);
   color: #182127;
   box-shadow: 0 8px 18px rgba(243, 179, 78, 0.22);
+}
+
+.selected-actions .action-downgrade {
+  background: linear-gradient(135deg, #76d7ff, #9fffd6);
+  color: #11222a;
+  box-shadow: 0 8px 18px rgba(118, 215, 255, 0.18);
 }
 
 .selected-actions .action-sell {

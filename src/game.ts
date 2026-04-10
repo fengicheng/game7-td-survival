@@ -172,6 +172,22 @@ export class GameState {
     tower.level = nextLevel;
     tower.hp = Math.min(this.applyFortify(stats.maxHp), tower.hp + Math.round(stats.maxHp * 0.35));
     this.message = `${TOWERS[tower.type].name} 升至 ${nextLevel} 级。`;
+    this.recomputePaths();
+    return true;
+  }
+
+  downgradeTower(id: number) {
+    if (this.phase !== "prep") return false;
+    const tower = this.towers.find((entry) => entry.id === id);
+    if (!tower || tower.level <= 1) return false;
+    const refund = this.downgradeRefund(tower);
+    const previousLevel = tower.level;
+    const nextLevel = (tower.level - 1) as 1 | 2;
+    tower.level = nextLevel;
+    tower.hp = Math.min(this.maxTowerHp(tower), tower.hp);
+    this.gold += refund;
+    this.message = `${TOWERS[tower.type].name} 从 Lv${previousLevel} 降至 Lv${nextLevel}，返还 ${refund} 金币。`;
+    this.recomputePaths();
     return true;
   }
 
@@ -309,6 +325,11 @@ export class GameState {
 
   sellValue(tower: TowerEntity) {
     return Math.floor(towerTotalCost(tower.type, tower.level) * 0.9);
+  }
+
+  downgradeRefund(tower: TowerEntity) {
+    if (tower.level <= 1) return 0;
+    return Math.floor(getTowerStats(tower.type, tower.level).cost * 0.9);
   }
 
   private canPlaceAt(x: number, y: number) {
