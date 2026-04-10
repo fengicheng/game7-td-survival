@@ -91,6 +91,7 @@ const musicToggleBtn = document.querySelector<HTMLButtonElement>("#music-toggle"
 const musicTracks = ["../1.1.mp3", "../1.2.mp3", "../1.3.mp3", "../1.4.mp3"].map((track) => new URL(track, import.meta.url).href);
 const musicPlayer = new Audio();
 musicPlayer.volume = 0.45;
+const NEXT_MUSIC_DELAY_MS = 30_000;
 let musicEnabled = true;
 let musicStarted = false;
 let musicTrackIndex = 0;
@@ -640,7 +641,6 @@ function playMusicTrack(resetTrack: boolean) {
     musicEnabled = false;
     musicToggleBtn.classList.add("muted-music");
   });
-  musicTimer = window.setTimeout(nextMusicTrack, 30_000);
 }
 
 function nextMusicTrack() {
@@ -649,9 +649,15 @@ function nextMusicTrack() {
   playMusicTrack(false);
 }
 
+function scheduleNextMusicTrack() {
+  if (!musicEnabled) return;
+  window.clearTimeout(musicTimer);
+  musicTimer = window.setTimeout(nextMusicTrack, NEXT_MUSIC_DELAY_MS);
+}
+
 function stopMusic() {
   window.clearTimeout(musicTimer);
   musicPlayer.pause();
 }
 
-musicPlayer.addEventListener("ended", nextMusicTrack);
+musicPlayer.addEventListener("ended", scheduleNextMusicTrack);

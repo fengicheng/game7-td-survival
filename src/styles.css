@@ -197,7 +197,16 @@ button:disabled {
 }
 
 .cell.breach {
-  background: linear-gradient(135deg, rgba(129, 28, 32, 0.5), rgba(82, 17, 21, 0.25));
+  position: relative;
+}
+
+.cell.breach::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 2px dashed rgba(255, 91, 91, 0.86);
+  border-radius: 2px;
+  pointer-events: none;
 }
 
 .cell.key-blocker {
