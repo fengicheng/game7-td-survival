@@ -324,12 +324,12 @@ export class GameState {
   }
 
   sellValue(tower: TowerEntity) {
-    return Math.floor(towerTotalCost(tower.type, tower.level) * 0.9);
+    return towerTotalCost(tower.type, tower.level);
   }
 
   downgradeRefund(tower: TowerEntity) {
     if (tower.level <= 1) return 0;
-    return Math.floor(getTowerStats(tower.type, tower.level).cost * 0.9);
+    return getTowerStats(tower.type, tower.level).cost;
   }
 
   private canPlaceAt(x: number, y: number) {
