@@ -98,7 +98,7 @@
       <strong>${e.name}</strong>
       <span>${e.description}</span>
       <em>${e.price} 金币</em>
-    `,t.addEventListener("click",()=>{n.buyOffer(e.id),I()}),U.appendChild(t)});const r=document.createElement("button");r.className="ghost",r.textContent="刷新商店",r.addEventListener("click",()=>{n.rerollShop(),I()}),U.appendChild(r)}function Bt(){const r=$?n.towers.find(a=>a.id===$):void 0,e=r?[r.id,r.type,r.level,r.hp,n.phase,n.repairCost(r),n.sellValue(r),n.downgradeRefund(r)].join("|"):"empty";if(e===re)return;if(re=e,!$){te.innerHTML='<p class="muted">点击地图中的防御塔查看升级、出售和维修成本。</p>';return}if(!r){$=null,re="empty",te.innerHTML='<p class="muted">点击地图中的防御塔查看升级、出售和维修成本。</p>';return}const t=n.maxTowerHp(r),o=n.sellValue(r),s=n.downgradeRefund(r);te.innerHTML=`
+    `,t.addEventListener("click",()=>{n.buyOffer(e.id),I()}),U.appendChild(t)});const r=document.createElement("button");r.className="ghost",r.textContent="刷新商店",r.addEventListener("click",()=>{n.rerollShop(),I()}),U.appendChild(r)}function Bt(){const r=$?n.towers.find(l=>l.id===$):void 0,e=r?[r.id,r.type,r.level,r.hp,n.phase,n.repairCost(r),n.sellValue(r),n.downgradeRefund(r)].join("|"):"empty";if(e===re)return;if(re=e,!$){te.innerHTML='<p class="muted">点击地图中的防御塔查看升级、出售和维修成本。</p>';return}if(!r){$=null,re="empty",te.innerHTML='<p class="muted">点击地图中的防御塔查看升级、出售和维修成本。</p>';return}const t=n.maxTowerHp(r),o=n.sellValue(r),s=n.downgradeRefund(r),a=r.level<3?r.level+1:null,i=a?k(r.type,a).cost:0,c=r.level<3?`升级：${i} 金币`:"已满级";te.innerHTML=`
     <div class="selected-card">
       <h3>${W[r.type].name} Lv${r.level}</h3>
       <p>生命：${r.hp} / ${t}</p>
@@ -107,7 +107,7 @@
       <p>降级返还：${s} 金币</p>
       <p>拆除返还：${o} 金币</p>
       <div class="selected-actions">
-        <button id="upgrade-selected" class="action-upgrade" ${n.phase!=="prep"||r.level>=3?"disabled":""}>升级</button>
+        <button id="upgrade-selected" class="action-upgrade" ${n.phase!=="prep"||r.level>=3?"disabled":""}>${c}</button>
         <button id="downgrade-selected" class="action-downgrade" ${n.phase!=="prep"||r.level<=1?"disabled":""}>等级下降</button>
         <button id="sell-selected" class="action-sell" ${n.phase!=="prep"?"disabled":""}>拆除返还</button>
       </div>

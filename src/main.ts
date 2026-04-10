@@ -444,6 +444,9 @@ function renderSelected() {
   const maxHp = game.maxTowerHp(tower);
   const sellValue = game.sellValue(tower);
   const downgradeRefund = game.downgradeRefund(tower);
+  const nextTowerLevel = tower.level < 3 ? ((tower.level + 1) as 2 | 3) : null;
+  const upgradeCost = nextTowerLevel ? getTowerStats(tower.type, nextTowerLevel).cost : 0;
+  const upgradeLabel = tower.level < 3 ? `升级：${upgradeCost} 金币` : "已满级";
   selectedInfoEl.innerHTML = `
     <div class="selected-card">
       <h3>${TOWERS[tower.type].name} Lv${tower.level}</h3>
@@ -453,7 +456,7 @@ function renderSelected() {
       <p>降级返还：${downgradeRefund} 金币</p>
       <p>拆除返还：${sellValue} 金币</p>
       <div class="selected-actions">
-        <button id="upgrade-selected" class="action-upgrade" ${game.phase !== "prep" || tower.level >= 3 ? "disabled" : ""}>升级</button>
+        <button id="upgrade-selected" class="action-upgrade" ${game.phase !== "prep" || tower.level >= 3 ? "disabled" : ""}>${upgradeLabel}</button>
         <button id="downgrade-selected" class="action-downgrade" ${game.phase !== "prep" || tower.level <= 1 ? "disabled" : ""}>等级下降</button>
         <button id="sell-selected" class="action-sell" ${game.phase !== "prep" ? "disabled" : ""}>拆除返还</button>
       </div>
