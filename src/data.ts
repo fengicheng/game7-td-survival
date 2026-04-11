@@ -191,7 +191,7 @@ export const ENEMIES: Record<EnemyType, EnemyConfig> = {
     hp: 140,
     armor: 2,
     speed: 0.95,
-    towerDamage: 52,
+    towerDamage: 56,
     attackCooldown: 1,
     attackRange: 1,
     coreDamage: 1,
@@ -286,8 +286,8 @@ const ENEMY_COSTS: Record<EnemyType, number> = { light: 1, heavy: 3, engineer: 4
 function availableEnemyTypes(wave: number): EnemyType[] {
   const types: EnemyType[] = ["light"];
   if (wave >= 3) types.push("heavy");
-  if (wave >= 5) types.push("beast");
-  if (wave >= 7) types.push("engineer");
+  if (wave >= 3) types.push("beast");
+  if (wave >= 5) types.push("engineer");
   if (wave >= 9) types.push("destroyer");
   if (wave >= 10 && wave % 10 === 0) types.push("boss");
   return types;
