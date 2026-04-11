@@ -543,6 +543,10 @@ button:disabled {
     radial-gradient(circle at 50% 40%, rgba(255, 230, 146, 0.08), transparent 26%);
 }
 
+.shop-panel[hidden] {
+  display: none !important;
+}
+
 .shop-panel-card {
   width: min(760px, 100%);
   max-height: min(78vh, 760px);

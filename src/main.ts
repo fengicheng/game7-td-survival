@@ -414,7 +414,7 @@ function renderInventory() {
 
 function renderShop() {
   if (game.phase !== "shop") {
-    shopEl.innerHTML = `<p class="muted">波次结束后，可在这里购买永久型与战斗型地图道具。</p>`;
+    shopEl.innerHTML = "";
     return;
   }
   shopEl.innerHTML = "";
@@ -517,10 +517,11 @@ function renderDynamic() {
   renderBoard();
   renderEnemies();
   renderSelected();
+  const showShop = game.phase === "shop";
   startWaveBtn.hidden = game.phase === "battle" || game.phase === "shop" || game.phase === "defeat";
   repairBtn.hidden = game.phase !== "prep";
-  shopCloseBtn.hidden = game.phase !== "shop";
-  shopPanelEl.hidden = game.phase !== "shop";
+  shopCloseBtn.hidden = !showShop;
+  shopPanelEl.hidden = !showShop;
   introEl.classList.toggle("is-hidden", !introVisible);
 }
 
