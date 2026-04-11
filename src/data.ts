@@ -268,7 +268,7 @@ export function getTowerStats(type: TowerType, level: 1 | 2 | 3) {
 }
 
 export function getWaveBudget(wave: number) {
-  return 18 + 7 * wave + 10 * Math.floor(wave / 5);
+  return 21 + 7 * wave + 10 * Math.floor(wave / 5);
 }
 
 export function getEnemyMultiplier(wave: number) {
@@ -281,7 +281,7 @@ export function getEnemyMultiplier(wave: number) {
   };
 }
 
-const ENEMY_COSTS: Record<EnemyType, number> = { light: 1, heavy: 3, engineer: 4, beast: 3, destroyer: 4, boss: 20 };
+const ENEMY_COSTS: Record<EnemyType, number> = { light: 1, heavy: 3, engineer: 3, beast: 3, destroyer: 4, boss: 15 };
 
 function availableEnemyTypes(wave: number): EnemyType[] {
   const types: EnemyType[] = ["light"];
