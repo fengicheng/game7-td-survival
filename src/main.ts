@@ -441,8 +441,21 @@ function renderShop() {
 
 function renderSelected() {
   const tower = selectedTowerId ? game.towers.find((entry) => entry.id === selectedTowerId) : undefined;
+  const currentStats = tower ? game.towerDisplayStats(tower) : undefined;
+  const maxHp = tower ? game.maxTowerHp(tower) : 0;
   const selectedInfoKey = tower
-    ? [tower.id, tower.type, tower.level, tower.hp, game.phase, game.repairCost(tower), game.sellValue(tower), game.downgradeRefund(tower)].join("|")
+    ? [
+        tower.id,
+        tower.type,
+        tower.level,
+        tower.hp,
+        maxHp,
+        currentStats?.damage ?? 0,
+        game.phase,
+        game.repairCost(tower),
+        game.sellValue(tower),
+        game.downgradeRefund(tower),
+      ].join("|")
     : "empty";
 
   if (selectedInfoKey === previousSelectedInfoKey) return;
@@ -458,7 +471,7 @@ function renderSelected() {
     selectedInfoEl.innerHTML = `<p class="muted">点击地图中的防御塔查看升级、出售和维修成本。</p>`;
     return;
   }
-  const maxHp = game.maxTowerHp(tower);
+  const stats = currentStats ?? game.towerDisplayStats(tower);
   const sellValue = game.sellValue(tower);
   const downgradeRefund = game.downgradeRefund(tower);
   const nextTowerLevel = tower.level < 3 ? ((tower.level + 1) as 2 | 3) : null;
@@ -467,7 +480,8 @@ function renderSelected() {
   selectedInfoEl.innerHTML = `
     <div class="selected-card">
       <h3>${TOWERS[tower.type].name} Lv${tower.level}</h3>
-      <p>生命：${tower.hp} / ${maxHp}</p>
+      <p>当前血量：${tower.hp} / ${maxHp}</p>
+      <p>当前攻击：${stats.damage}</p>
       <p>${towerRangeLabel(tower)}</p>
       <p>维修：${game.repairCost(tower)} 金币</p>
       <p>降级返还：${downgradeRefund} 金币</p>

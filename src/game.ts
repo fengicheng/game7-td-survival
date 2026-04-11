@@ -3,6 +3,8 @@ import {
   DANGER_DAMAGE_PER_SECOND,
   DANGER_TILES,
   ENEMIES,
+  GLOBAL_ENEMY_HP_MULTIPLIER,
+  GLOBAL_ENEMY_SPEED_MULTIPLIER,
   INITIAL_CORE_HP,
   INITIAL_GOLD,
   ITEMS,
@@ -321,6 +323,10 @@ export class GameState {
     return this.applyFortify(getTowerStats(tower.type, tower.level).maxHp);
   }
 
+  towerDisplayStats(tower: TowerEntity) {
+    return this.getTowerStatsWithAuras(tower);
+  }
+
   repairCost(tower: TowerEntity) {
     const maxHp = this.maxTowerHp(tower);
     if (tower.hp >= maxHp) return 0;
@@ -359,7 +365,7 @@ export class GameState {
       const multiplier = getEnemyMultiplier(this.wave);
       const spawn = SPAWNS[plan.spawnId];
       const route = this.currentPathForSpawn(plan.spawnId, plan.type);
-      const maxHp = Math.round(config.hp * multiplier.hp);
+      const maxHp = Math.round(config.hp * multiplier.hp * GLOBAL_ENEMY_HP_MULTIPLIER);
       this.enemies.push({
         id: this.nextEntityId += 1,
         type: plan.type,
@@ -391,14 +397,12 @@ export class GameState {
       this.syncEnemyRoute(enemy);
 
       const wallTarget = this.activeBreakWallTarget(enemy);
-      if (wallTarget) {
-        this.attackStructure(enemy, wallTarget, multiplier.towerDamage, dt);
+      if (wallTarget && this.attackStructure(enemy, wallTarget, multiplier.towerDamage)) {
         return;
       }
 
       const forcedTarget = this.pickSaboteurTarget(enemy, lure);
-      if (forcedTarget) {
-        this.attackStructure(enemy, forcedTarget, multiplier.towerDamage, dt);
+      if (forcedTarget && this.attackStructure(enemy, forcedTarget, multiplier.towerDamage)) {
         return;
       }
 
@@ -412,11 +416,16 @@ export class GameState {
 
       const blocker = this.findBlockingAt(next.x, next.y);
       if (blocker) {
-        this.attackStructure(enemy, blocker, multiplier.towerDamage, dt);
+        this.attackStructure(enemy, blocker, multiplier.towerDamage);
         return;
       }
 
-      const speed = config.speed * multiplier.speed * enemy.speedMultiplier * (enemy.slowUntil > this.elapsed ? 0.65 : 1);
+      const speed =
+        config.speed *
+        multiplier.speed *
+        GLOBAL_ENEMY_SPEED_MULTIPLIER *
+        enemy.speedMultiplier *
+        (enemy.slowUntil > this.elapsed ? 0.65 : 1);
       enemy.progress += speed * dt;
       while (enemy.progress >= 1) {
         enemy.progress -= 1;
@@ -617,16 +626,10 @@ export class GameState {
     return undefined;
   }
 
-  private attackStructure(enemy: EnemyEntity, target: TowerEntity | ItemEntity | FragileWallEntity, towerDamageMultiplier: number, dt: number) {
+  private attackStructure(enemy: EnemyEntity, target: TowerEntity | ItemEntity | FragileWallEntity, towerDamageMultiplier: number) {
     const config = ENEMIES[enemy.type];
-    if (distance(enemy, target) > config.attackRange + 0.1) {
-      const dx = Math.sign(target.x - enemy.x);
-      const dy = Math.sign(target.y - enemy.y);
-      enemy.x += dx * config.speed * dt * 0.7;
-      enemy.y += dy * config.speed * dt * 0.7;
-      return;
-    }
-    if (enemy.cooldownLeft > 0) return;
+    if (distance(enemy, target) > config.attackRange + 0.1) return false;
+    if (enemy.cooldownLeft > 0) return true;
     const baseDamage = Math.round(config.towerDamage * towerDamageMultiplier * (this.pathBundle.phase === "forced" ? 1.5 : 1));
     const armor = this.structureArmor(target);
     const actual = Math.max(1, baseDamage - armor);
@@ -635,6 +638,7 @@ export class GameState {
     if (config.frenzy && enemy.targetTowerId === target.id) enemy.speedMultiplier = Math.min(enemy.speedMultiplier + 0.12, 1.6);
     else enemy.targetTowerId = target.id;
     if (config.boss && Math.random() < 0.18) this.damageStructuresInRadius(target.x, target.y, 1.1, 120);
+    return true;
   }
 
   private damageEnemiesInRadius(x: number, y: number, radius: number, damage: number) {

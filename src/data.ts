@@ -42,6 +42,8 @@ export const FRAGILE_WALL_HP = 780;
 export const FRAGILE_WALL_ARMOR = 6;
 export const DANGER_DAMAGE_PER_SECOND = 16;
 export const DANGER_PATH_PENALTY = 0.75;
+export const GLOBAL_ENEMY_HP_MULTIPLIER = 2;
+export const GLOBAL_ENEMY_SPEED_MULTIPLIER = 1.15;
 
 export const TERRAIN_WALLS = new Set<string>();
 export const BUILDABLE_TILES = new Set<string>();
