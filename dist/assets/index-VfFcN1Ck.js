@@ -5,7 +5,6 @@
       <div class="panel controls">
         <button id="start-wave" class="primary">开始波次</button>
         <button id="repair-all">批量维修</button>
-        <button id="shop-close" hidden>离开商店</button>
         <button id="music-toggle" class="music-toggle">关闭音乐</button>
       </div>
     </header>
@@ -23,16 +22,21 @@
           <h2>战斗道具栏</h2>
           <div id="inventory"></div>
         </section>
-        <section class="panel" id="shop-panel">
-          <h2>波间商店</h2>
-          <div id="shop"></div>
-        </section>
       </aside>
     </main>
     <footer class="bottom-bar panel">
       <div class="bar-title">防御塔下边栏</div>
       <div id="tower-bar" class="tower-bar"></div>
     </footer>
+    <section class="shop-panel" id="shop-panel" hidden>
+      <div class="shop-panel-card panel">
+        <div class="shop-panel-header">
+          <h2>波间商店</h2>
+          <button id="shop-close" class="shop-close">离开商店</button>
+        </div>
+        <div id="shop"></div>
+      </div>
+    </section>
     <section class="intro-screen" id="intro-screen">
       <div class="intro-card panel">
         <p class="intro-kicker">单地图 · 无限波次 · 动态堵路塔防</p>

@@ -160,10 +160,10 @@ button:disabled {
 
 .cell.buildable {
   background:
-    linear-gradient(135deg, rgba(112, 255, 188, 0.34), rgba(28, 143, 107, 0.24));
+    linear-gradient(135deg, rgba(255, 243, 176, 0.44), rgba(214, 179, 79, 0.28));
   box-shadow:
-    inset 0 0 0 1px rgba(170, 255, 214, 0.42),
-    inset 0 0 18px rgba(77, 231, 166, 0.18);
+    inset 0 0 0 1px rgba(255, 249, 205, 0.68),
+    inset 0 0 18px rgba(255, 226, 120, 0.24);
 }
 
 .cell.road {
@@ -199,18 +199,18 @@ button:disabled {
 
 .cell.path {
   box-shadow:
-    inset 0 0 0 999px rgba(255, 48, 48, 0.18),
-    inset 0 0 0 2px rgba(255, 88, 88, 0.98),
-    inset 0 0 18px rgba(255, 74, 74, 0.34),
-    0 0 14px rgba(255, 74, 74, 0.22);
+    inset 0 0 0 999px rgba(255, 26, 102, 0.32),
+    inset 0 0 0 2px rgba(255, 78, 138, 1),
+    inset 0 0 22px rgba(255, 46, 115, 0.54),
+    0 0 18px rgba(255, 38, 110, 0.46);
 }
 
 .cell.breach {
   box-shadow:
-    inset 0 0 0 999px rgba(255, 32, 32, 0.24),
-    inset 0 0 0 2px rgba(255, 112, 112, 1),
-    inset 0 0 22px rgba(255, 86, 86, 0.4),
-    0 0 18px rgba(255, 70, 70, 0.3);
+    inset 0 0 0 999px rgba(255, 0, 85, 0.42),
+    inset 0 0 0 2px rgba(255, 129, 176, 1),
+    inset 0 0 26px rgba(255, 57, 126, 0.7),
+    0 0 22px rgba(255, 34, 106, 0.58);
 }
 
 .cell.key-blocker {
@@ -525,6 +525,67 @@ button:disabled {
   gap: 12px;
 }
 
+#inventory,
+#shop {
+  display: grid;
+  gap: 10px;
+}
+
+.shop-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    linear-gradient(180deg, rgba(7, 12, 16, 0.62), rgba(7, 12, 16, 0.76)),
+    radial-gradient(circle at 50% 40%, rgba(255, 230, 146, 0.08), transparent 26%);
+}
+
+.shop-panel-card {
+  width: min(760px, 100%);
+  max-height: min(78vh, 760px);
+  overflow: auto;
+  padding: 18px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(31, 45, 53, 0.96), rgba(15, 23, 29, 0.98)),
+    linear-gradient(135deg, rgba(255, 209, 110, 0.09), transparent 36%);
+}
+
+.shop-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.shop-panel-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.shop-close {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, rgba(82, 104, 114, 0.9), rgba(45, 60, 68, 0.96));
+  color: var(--ink);
+  font-weight: 700;
+}
+
+#shop {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#shop .ghost {
+  grid-column: 1 / -1;
+  min-height: 56px;
+  align-content: center;
+}
+
 .intro-screen {
   position: fixed;
   inset: 0;
@@ -628,5 +689,33 @@ button:disabled {
 
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shop-panel {
+    padding: 16px;
+  }
+
+  .shop-panel-card {
+    width: min(680px, 100%);
+  }
+}
+
+@media (max-width: 760px) {
+  #shop {
+    grid-template-columns: 1fr;
+  }
+
+  .shop-panel-card {
+    max-height: calc(100vh - 32px);
+    padding: 16px;
+  }
+
+  .shop-panel-header {
+    align-items: flex-start;
+  }
+
+  .shop-close {
+    min-height: 38px;
+    padding: 0 12px;
   }
 }
