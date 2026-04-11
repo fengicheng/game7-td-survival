@@ -188,7 +188,7 @@ export const ENEMIES: Record<EnemyType, EnemyConfig> = {
   engineer: {
     name: "工程兵",
     color: "#ff9e6d",
-    hp: 140,
+    hp: 155,
     armor: 2,
     speed: 0.95,
     towerDamage: 56,
@@ -216,7 +216,7 @@ export const ENEMIES: Record<EnemyType, EnemyConfig> = {
   destroyer: {
     name: "远程破坏者",
     color: "#8fc2ff",
-    hp: 130,
+    hp: 145,
     armor: 1,
     speed: 0.9,
     towerDamage: 28,
@@ -230,7 +230,7 @@ export const ENEMIES: Record<EnemyType, EnemyConfig> = {
   boss: {
     name: "Boss",
     color: "#ff4e5f",
-    hp: 1800,
+    hp: 2000,
     armor: 14,
     speed: 0.8,
     towerDamage: 65,
