@@ -30,6 +30,8 @@ interface SearchResult {
 const REPRESENTATIVE_TYPE: EnemyType = "light";
 const NO_PATH_COST = Number.POSITIVE_INFINITY;
 const PREFERRED_PATH_PENALTY = 0.35;
+const MAX_LEVEL_THREAT_FACTOR = 1.85;
+const MAX_CONTROL_THREAT_FACTOR = 1.8;
 
 const DIRS = [
   { x: 1, y: 0, key: "R" },
@@ -91,11 +93,12 @@ function buildInfluenceMaps(occupancy: Occupancy) {
     const aura = getTowerStats(tower.type, tower.level);
     const auraRange = aura.auraRange ?? 0;
     if (!auraRange) return;
+    const auraWeight = 1 + (getSupportAuraFactor(tower) - 1) * 0.35;
     towers.forEach((target) => {
       if (target.id === tower.id || distance(tower, target) > auraRange) return;
       const current = supportBoosts.get(target.id) ?? { attack: 0, speed: 0 };
-      current.attack += aura.auraAttackBonus ?? 0;
-      current.speed += aura.auraSpeedBonus ?? 0;
+      current.attack += (aura.auraAttackBonus ?? 0) * auraWeight;
+      current.speed += (aura.auraSpeedBonus ?? 0) * auraWeight;
       supportBoosts.set(target.id, current);
     });
   });
@@ -113,13 +116,13 @@ function buildInfluenceMaps(occupancy: Occupancy) {
 
         const support = supportBoosts.get(tower.id) ?? { attack: 0, speed: 0 };
         const multiplier = 1 + support.attack + support.speed;
-        if (tower.type === "gun") fireValue += 0.6 * multiplier;
-        else if (tower.type === "sniper") fireValue += 1.2 * multiplier;
-        else if (tower.type === "cannon") fireValue += 1.5 * multiplier;
+        if (tower.type === "gun") fireValue += 0.6 * getTowerLevelThreatFactor(tower) * multiplier;
+        else if (tower.type === "sniper") fireValue += 1.2 * getTowerLevelThreatFactor(tower) * multiplier;
+        else if (tower.type === "cannon") fireValue += 1.5 * getTowerLevelThreatFactor(tower) * multiplier;
         else if (tower.type === "slow") {
-          fireValue += 0.4 * multiplier;
-          controlValue += 1.2;
-        } else if (tower.type === "fortress") fireValue += 0.2;
+          fireValue += 0.4 * getTowerLevelThreatFactor(tower) * multiplier;
+          controlValue += 1.2 * getSlowControlFactor(tower);
+        } else if (tower.type === "fortress") fireValue += 0.2 * getTowerLevelThreatFactor(tower);
       });
 
       const wire = occupancy.items.get(key);
@@ -132,6 +135,60 @@ function buildInfluenceMaps(occupancy: Occupancy) {
   }
 
   return { fire, control };
+}
+
+function ratio(current: number, base: number) {
+  if (base <= 0) return 1;
+  return current / base;
+}
+
+function bonusRatio(current: number | undefined, base: number | undefined) {
+  return (1 + (current ?? 0)) / (1 + (base ?? 0));
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function towerBaseRange(type: TowerEntity["type"]) {
+  const base = getTowerStats(type, 1);
+  return base.range > 0 ? base.range : base.auraRange ?? 0;
+}
+
+function towerCurrentRange(tower: TowerEntity) {
+  const current = getTowerStats(tower.type, tower.level);
+  return current.range > 0 ? current.range : current.auraRange ?? 0;
+}
+
+function getTowerLevelThreatFactor(tower: TowerEntity) {
+  const base = getTowerStats(tower.type, 1);
+  const current = getTowerStats(tower.type, tower.level);
+  const damageFactor = base.damage > 0 ? ratio(current.damage, base.damage) : 1;
+  const rateFactor = current.cooldown > 0 ? ratio(base.cooldown, current.cooldown) : 1;
+  const rangeFactor = ratio(towerCurrentRange(tower), towerBaseRange(tower.type));
+  const threat = damageFactor * 0.55 + rateFactor * 0.25 + rangeFactor * 0.2;
+  return clamp(threat, 1, MAX_LEVEL_THREAT_FACTOR);
+}
+
+function getSlowControlFactor(tower: TowerEntity) {
+  const base = getTowerStats("slow", 1);
+  const current = getTowerStats("slow", tower.level);
+  const slowPctFactor = ratio(current.slowPct ?? 0, base.slowPct ?? 1);
+  const slowDurationFactor = ratio(current.slowDuration ?? 0, base.slowDuration ?? 1);
+  const rangeFactor = ratio(current.range, base.range);
+  const control = slowPctFactor * 0.45 + slowDurationFactor * 0.3 + rangeFactor * 0.25;
+  return clamp(control, 1, MAX_CONTROL_THREAT_FACTOR);
+}
+
+function getSupportAuraFactor(tower: TowerEntity) {
+  const base = getTowerStats("support", 1);
+  const current = getTowerStats("support", tower.level);
+  const rangeFactor = ratio(current.auraRange ?? 0, base.auraRange ?? 1);
+  const speedFactor = bonusRatio(current.auraSpeedBonus, base.auraSpeedBonus);
+  const attackFactor = bonusRatio(current.auraAttackBonus, base.auraAttackBonus);
+  const repairFactor = bonusRatio(current.auraRepairDiscount, base.auraRepairDiscount);
+  const aura = rangeFactor * 0.45 + speedFactor * 0.35 + attackFactor * 0.15 + repairFactor * 0.05;
+  return clamp(aura, 1, MAX_CONTROL_THREAT_FACTOR);
 }
 
 function heuristic(point: Point, enemyType: EnemyType) {
@@ -188,8 +245,16 @@ function towerBreakCost(tower: TowerEntity, enemyType: EnemyType) {
         : tower.type === "fortress"
           ? 1
           : 0;
+  const levelBonus =
+    tower.level <= 1
+      ? 0
+      : tower.type === "support"
+        ? 2 * (tower.level - 1)
+        : tower.type === "fortress"
+          ? 0.5 * (tower.level - 1)
+          : 1 * (tower.level - 1);
   const effectiveHp = tower.hp * (1 + stats.armor * 0.06);
-  return (fixed + tactical + effectiveHp / breakEfficiency(enemyType)) * weights.structure;
+  return (fixed + tactical + levelBonus + effectiveHp / breakEfficiency(enemyType)) * weights.structure;
 }
 
 function wallBreakCost(wall: FragileWallEntity, enemyType: EnemyType) {
