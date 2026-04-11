@@ -288,7 +288,7 @@ function availableEnemyTypes(wave: number): EnemyType[] {
   if (wave >= 3) types.push("heavy");
   if (wave >= 3) types.push("beast");
   if (wave >= 5) types.push("engineer");
-  if (wave >= 9) types.push("destroyer");
+  if (wave >= 7) types.push("destroyer");
   if (wave >= 10 && wave % 10 === 0) types.push("boss");
   return types;
 }
